@@ -1,0 +1,5 @@
+* text=auto
+
+# Shell scripts run by sh, which does not accept CRLF
+.githooks/* text eol=lf
+*.sh text eol=lf

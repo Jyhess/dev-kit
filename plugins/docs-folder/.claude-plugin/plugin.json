@@ -1,0 +1,7 @@
+{
+  "name": "docs-folder",
+  "description": "Document a small project in a docs/ folder of its repository, in English, kept up to date from the project's update table",
+  "author": {
+    "name": "Jyhess"
+  }
+}

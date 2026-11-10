@@ -1,0 +1,7 @@
+{
+  "name": "tracking-github-issues",
+  "description": "Track a small project in GitHub issues: split work into issues, implement an issue up to the PR, without points or time",
+  "author": {
+    "name": "Jyhess"
+  }
+}

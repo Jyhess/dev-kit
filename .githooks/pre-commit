@@ -1,0 +1,8 @@
+#!/bin/sh
+# Warnings, never blocking: forbidden synonyms of a glossary and ticket references on the added lines, Markdown
+# size budgets.
+# The blocking checks run before each push (.githooks/pre-push).
+cd "$(git rev-parse --show-toplevel)"
+python3 plugins/core/scripts/vocabulary_check.py --staged || true
+python3 plugins/core/scripts/ticket_refs.py --staged || true
+python3 plugins/core/scripts/doc_budget.py --staged || true

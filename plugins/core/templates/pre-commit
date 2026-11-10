@@ -1,0 +1,11 @@
+#!/bin/sh
+# dev-kit warnings, never blocking: forbidden synonyms of the glossary and ticket references on the added lines,
+# Markdown size budgets.
+# The verification runs before each push (.githooks/pre-push).
+cd "$$(git rev-parse --show-toplevel)"
+DEV_KIT="$$(python3 -c 'import json, pathlib; print(json.loads((pathlib.Path.home() / ".claude/plugins/known_marketplaces.json").read_text(encoding="utf-8"))["jyhess"]["installLocation"])' 2>/dev/null || true)"
+if [ -f "$$DEV_KIT/plugins/core/scripts/doc_budget.py" ]; then
+  python3 "$$DEV_KIT/plugins/core/scripts/vocabulary_check.py" --staged || true
+  python3 "$$DEV_KIT/plugins/core/scripts/ticket_refs.py" --staged || true
+  python3 "$$DEV_KIT/plugins/core/scripts/doc_budget.py" --staged || true
+fi

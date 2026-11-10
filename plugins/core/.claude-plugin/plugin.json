@@ -1,0 +1,7 @@
+{
+  "name": "core",
+  "description": "clarify, pilot and project-init skills, and the hooks that keep dev-kit up to date, inject a project's domain vocabulary and keep sessions short",
+  "author": {
+    "name": "Jyhess"
+  }
+}

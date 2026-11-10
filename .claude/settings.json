@@ -1,0 +1,21 @@
+{
+  "enabledPlugins": {
+    "anthropic-skills@inline": false,
+    "docs-folder@jyhess": true,
+    "tracking-github-issues@jyhess": true
+  },
+  "permissions": {
+    "deny": [
+      "Artifact",
+      "mcp__Claude_Browser",
+      "mcp__visualize",
+      "Workflow",
+      "ScheduleWakeup",
+      "SuggestPluginInstall",
+      "SuggestSkills",
+      "SearchPlugins",
+      "SendUserFile",
+      "mcp__claude-in-chrome"
+    ]
+  }
+}

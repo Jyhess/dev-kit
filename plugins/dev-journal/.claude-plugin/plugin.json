@@ -1,0 +1,7 @@
+{
+  "name": "dev-journal",
+  "description": "Hourly work journal shared by several machines, kept in a private Git repository: the hook that asks about unlogged working hours, and the hourly skill that writes the entries from local activity",
+  "author": {
+    "name": "Jyhess"
+  }
+}

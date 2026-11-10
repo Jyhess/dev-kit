@@ -1,0 +1,7 @@
+{
+  "name": "tracking-linear",
+  "description": "Track a project in Linear: split work into tickets, implement a ticket up to the PR, step reviews and decision points with the points done and the work journal's hours",
+  "author": {
+    "name": "Jyhess"
+  }
+}

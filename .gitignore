@@ -1,0 +1,12 @@
+# Vim backup, undo and swap files
+*~
+*.un~
+*.swp
+*.swo
+
+__pycache__/
+
+# Local Claude Code settings and dated analyses (token-usage --save)
+.claude/settings.local.json
+/history/
+/.private-words

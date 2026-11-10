@@ -1,0 +1,16 @@
+{
+  "description": "Tell Claude about the work journal's gaps before each prompt",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/dev_journal.py\" check",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

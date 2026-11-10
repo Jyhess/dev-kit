@@ -1,0 +1,44 @@
+{
+  "name": "jyhess",
+  "description": "Opinionated Claude Code plugins of Jyhess: clarify before building, set up projects with shared conventions, track work and document it",
+  "owner": {
+    "name": "Jyhess"
+  },
+  "plugins": [
+    {
+      "name": "core",
+      "source": "./plugins/core",
+      "description": "clarify, pilot and project-init skills, and the hooks that keep dev-kit up to date, inject a project's domain vocabulary and keep sessions short"
+    },
+    {
+      "name": "dev-journal",
+      "source": "./plugins/dev-journal",
+      "description": "Hourly work journal shared by several machines, kept in a private Git repository: the hook that asks about unlogged working hours, and the hourly skill that writes the entries from local activity"
+    },
+    {
+      "name": "tracking-linear",
+      "source": "./plugins/tracking-linear",
+      "description": "Track a project in Linear: split work into tickets, implement a ticket up to the PR, step reviews and decision points with the points done and the work journal's hours"
+    },
+    {
+      "name": "tracking-github-issues",
+      "source": "./plugins/tracking-github-issues",
+      "description": "Track a small project in GitHub issues: split work into issues, implement an issue up to the PR, without points or time"
+    },
+    {
+      "name": "docs-wiki-github",
+      "source": "./plugins/docs-wiki-github",
+      "description": "Document a project in a wiki kept as a GitHub repository: page and folder structure, file names, links, Mermaid, index page, and a link checker"
+    },
+    {
+      "name": "docs-folder",
+      "source": "./plugins/docs-folder",
+      "description": "Document a small project in a docs/ folder of its repository, in English, kept up to date from the project's update table"
+    },
+    {
+      "name": "writing",
+      "source": "./plugins/writing",
+      "description": "Write the user's professional communications (LinkedIn posts, announcements, professional mails) in their own voice, from their private voice profile, and tell whether a text was reworked by AI"
+    }
+  ]
+}

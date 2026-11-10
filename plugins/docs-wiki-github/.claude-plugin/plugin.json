@@ -1,0 +1,7 @@
+{
+  "name": "docs-wiki-github",
+  "description": "Document a project in a wiki kept as a GitHub repository: page and folder structure, file names, links, Mermaid, index page, and a link checker",
+  "author": {
+    "name": "Jyhess"
+  }
+}

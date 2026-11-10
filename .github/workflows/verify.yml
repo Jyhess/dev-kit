@@ -1,0 +1,77 @@
+# Run the pre-push checks (.githooks/pre-push) and the .NET and Kotlin template tests on Linux. Windows is
+# covered by the pre-push hook on the user's Windows machine: macOS and Windows runners cost 10x and 2x Linux
+# minutes on private repositories.
+# The auto-merge workflow waits for this one (named "Verify") to pass before merging.
+name: Verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Install the Claude Code CLI (for claude plugin validate)
+        run: npm install --global --no-fund --no-audit @anthropic-ai/claude-code
+      - name: Install import-linter (end-to-end test of the Python architecture check)
+        run: python -m pip install import-linter
+      - name: Install dependency-cruiser (end-to-end test of the JS/TS architecture check)
+        run: npm install --global --no-fund --no-audit dependency-cruiser
+      - name: Set a Git identity for the tests' repositories
+        run: |
+          git config --global user.name "CI"
+          git config --global user.email "ci@example.invalid"
+      - name: Pre-push checks
+        run: sh .githooks/pre-push
+
+  dotnet-template:
+    # End-to-end test of the .NET architecture template on a throwaway solution (tests/test_dotnet_template.py):
+    # it needs the .NET SDK and nuget.org, so it runs here and not in the pre-push hook.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: .NET template test
+        env:
+          DEV_KIT_DOTNET_TEMPLATE: "1"
+        run: python -m unittest -v tests.test_dotnet_template
+
+  kotlin-template:
+    # End-to-end test of the Kotlin architecture template on a throwaway Gradle project
+    # (tests/test_kotlin_template.py): it needs a JDK, Gradle and Maven Central, so it runs here and not in the
+    # pre-push hook.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.5.0"
+      - name: Kotlin template test
+        env:
+          DEV_KIT_KOTLIN_TEMPLATE: "1"
+        run: python -m unittest -v tests.test_kotlin_template

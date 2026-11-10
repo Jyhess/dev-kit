@@ -1,0 +1,10 @@
+# Paths whose ticket references are examples (plugins/core/scripts/ticket_refs.py).
+tests/
+.github/pull_request_template.md
+pr_description.py
+docs/pr-description.md
+plugins/core/templates/pull_request_template.md
+plugins/core/skills/pilot/SKILL.md
+plugins/dev-journal/skills/hourly/SKILL.md
+plugins/tracking-github-issues/skills/github-issues/SKILL.md
+plugins/core/scripts/ticket_refs.py
