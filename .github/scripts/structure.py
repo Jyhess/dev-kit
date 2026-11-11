@@ -12,7 +12,7 @@ merges such a pull request. A change is structural when it:
   `*.gemspec`, `Gemfile`, or a pattern of `manifest_patterns` (lock files follow their
   manifest and do not count); a changed manifest with a dependency extractor
   (`DEPENDENCY_EXTRACTORS`) counts only when its dependencies change (for `project.godot`:
-  engine features, main scene, .NET assembly, autoloads and editor plugins);
+  engine features, .NET assembly, autoloads and editor plugins);
 - adds or removes a top-level folder, hidden ones included;
 - removes or modifies a component interface:
   - in C#, a `public interface` declaration (header or member changed, interface removed
@@ -189,13 +189,13 @@ GODOT_SECTION = re.compile(r"\[([^\]\"]+)\]\s*$")
 GODOT_KEY = re.compile(r"([A-Za-z0-9_][A-Za-z0-9_/.\-]*)\s*=\s*(.*)$")
 GODOT_STRING = re.compile(r'"((?:\\.|[^"\\])*)"')
 # The keys of project.godot that shape the project, by section ("" before the first one); None keeps every key.
-GODOT_STRUCTURAL_KEYS = {"": {"config_version"}, "application": {"config/features", "run/main_scene"},
+GODOT_STRUCTURAL_KEYS = {"": {"config_version"}, "application": {"config/features"},
                          "dotnet": {"project/assembly_name"}, "autoload": None, "editor_plugins": {"enabled"}}
 
 
 def godot_dependencies(text: str) -> set[str]:
-    """Engine version and features, main scene, .NET assembly, autoloads and enabled editor plugins of a
-    project.godot; input actions, layer names and engine settings are not structural. A value spanning lines
+    """Engine version and features, .NET assembly, autoloads and enabled editor plugins of a project.godot;
+    the main scene, input actions, layer names and engine settings are not structural. A value spanning lines
     (an input action's events) is ignored with its key: its continuation lines never look like `key=`."""
     found, section = set(), ""
     for line in text.splitlines():

@@ -132,6 +132,7 @@ class ManifestDependenciesTest(unittest.TestCase):
                  "requests==2.31  # pinned\n-r  requirements.txt\n"),
                 ("project.godot", GODOT, GODOT.replace("fire={", GODOT_ACTION + "fire={")
                  .replace('"Atelier"\nrun', '"Atelier 2"\nrun').replace("interpolation=true", "interpolation=false")
+                 .replace("garage", "menu")
                  + '\n[layer_names]\n\n3d_physics/layer_1="ships"\n')):
             with self.subTest(path=path):
                 self.assertEqual(manifest_signals(path, base, head), [])
@@ -155,9 +156,6 @@ class ManifestDependenciesTest(unittest.TestCase):
                 ("requirements.txt", "requests\n", "requests\nPy_Yaml\n", "+py-yaml"),
                 ("project.godot", GODOT, GODOT.replace('"4.7"', '"4.8"'),
                  "+application config/features 4.8, -application config/features 4.7"),
-                ("project.godot", GODOT, GODOT.replace("garage", "menu"),
-                 '+application run/main_scene "res://scenes/menu.tscn", '
-                 '-application run/main_scene "res://scenes/garage.tscn"'),
                 ("project.godot", GODOT, GODOT.replace("[dotnet]", 'Audio="*res://audio.gd"\n\n[dotnet]'),
                  '+autoload Audio "*res://audio.gd"'),
                 ("project.godot", GODOT, GODOT.replace('PackedStringArray("res://addons/gdUnit4/plugin.cfg")',
