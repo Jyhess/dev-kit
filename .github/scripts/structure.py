@@ -11,7 +11,8 @@ merges such a pull request. A change is structural when it:
   `pyproject.toml`, `requirements*.txt`, `Cargo.toml`, `go.mod`, `project.godot`,
   `*.gemspec`, `Gemfile`, or a pattern of `manifest_patterns` (lock files follow their
   manifest and do not count); a changed manifest with a dependency extractor
-  (`DEPENDENCY_EXTRACTORS`) counts only when its dependencies change;
+  (`DEPENDENCY_EXTRACTORS`) counts only when its dependencies change (for `project.godot`:
+  engine features, main scene, .NET assembly, autoloads and editor plugins);
 - adds or removes a top-level folder, hidden ones included;
 - removes or modifies a component interface:
   - in C#, a `public interface` declaration (header or member changed, interface removed
@@ -184,9 +185,42 @@ def requirements_dependencies(text: str) -> set[str]:
     return {" ".join(line.split()) if line.startswith("-") else requirement_name(line) for line in lines if line}
 
 
+GODOT_SECTION = re.compile(r"\[([^\]\"]+)\]\s*$")
+GODOT_KEY = re.compile(r"([A-Za-z0-9_][A-Za-z0-9_/.\-]*)\s*=\s*(.*)$")
+GODOT_STRING = re.compile(r'"((?:\\.|[^"\\])*)"')
+# The keys of project.godot that shape the project, by section ("" before the first one); None keeps every key.
+GODOT_STRUCTURAL_KEYS = {"": {"config_version"}, "application": {"config/features", "run/main_scene"},
+                         "dotnet": {"project/assembly_name"}, "autoload": None, "editor_plugins": {"enabled"}}
+
+
+def godot_dependencies(text: str) -> set[str]:
+    """Engine version and features, main scene, .NET assembly, autoloads and enabled editor plugins of a
+    project.godot; input actions, layer names and engine settings are not structural. A value spanning lines
+    (an input action's events) is ignored with its key: its continuation lines never look like `key=`."""
+    found, section = set(), ""
+    for line in text.splitlines():
+        line = line.strip()
+        if (header := GODOT_SECTION.fullmatch(line)) is not None:
+            section = header.group(1).strip()
+            continue
+        key = GODOT_KEY.match(line)
+        if key is None or section not in GODOT_STRUCTURAL_KEYS:
+            continue
+        name, value = key.groups()
+        kept = GODOT_STRUCTURAL_KEYS[section]
+        if kept is not None and name not in kept:
+            continue
+        if name in ("config/features", "enabled"):  # a PackedStringArray: one dependency per item
+            found |= {f"{section} {name} {item}" for item in GODOT_STRING.findall(value)}
+        else:
+            found.add(f"{section or 'project'} {name} {value.strip()}")
+    return found
+
+
 # The dependencies a manifest declares, by file name pattern: a change of anything else in it is not structural.
 DEPENDENCY_EXTRACTORS = {"*.csproj": csproj_dependencies, "package.json": package_json_dependencies,
-                         "pyproject.toml": pyproject_dependencies, "requirements*.txt": requirements_dependencies}
+                         "pyproject.toml": pyproject_dependencies, "requirements*.txt": requirements_dependencies,
+                         "project.godot": godot_dependencies}
 
 
 def dependencies(path: str, text: str) -> frozenset[str] | None:
