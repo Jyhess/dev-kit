@@ -4,8 +4,9 @@
     python3 ask_form.py < questions.json    # or: python3 ask_form.py questions.json
 
 The input is {"questions": [...], "intro"?: str, "lang"?: "fr" | "en"}; each question is
-{"id", "title", "options": [{"label", "description"?}], "multi"?, "freeTextPlaceholder"?,
-"required"?}. Valid: prints ask_form.html with the form's data, exits 0. Invalid: prints
+{"id", "title", "options": [{"label", "description"?, "icon"?}], "multi"?,
+"freeTextPlaceholder"?, "required"?}. Options whose label ends with a recommended marker start
+selected; a single-choice question has at most one. Valid: prints ask_form.html with the form's data, exits 0. Invalid: prints
 one line per error on stderr, exits 1. The answers come back as one `sendPrompt` message.
 """
 
@@ -13,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from dataclasses import dataclass
 from enum import Enum
@@ -27,7 +29,11 @@ MAX_OPTIONS = 8
 LANGS = ("fr", "en")
 FORM_KEYS = {"questions", "intro", "lang"}
 QUESTION_KEYS = {"id", "title", "multi", "options", "freeTextPlaceholder", "required"}
-OPTION_KEYS = {"label", "description"}
+OPTION_KEYS = {"label", "description", "icon"}
+# Must match RECOMMENDED in ask_form.html.
+RECOMMENDED = re.compile(r"\((Recommandé|Recommended)\)$")
+# A Tabler outline icon class; the pattern also keeps the value safe inside a class attribute.
+ICON = re.compile(r"ti-[a-z0-9]+(-[a-z0-9]+)*")
 
 
 class Kind(Enum):
@@ -42,6 +48,8 @@ class Kind(Enum):
     TOO_MANY_OPTIONS = "too many options"
     DUPLICATE = "duplicate"
     UNKNOWN_LANG = "unknown lang"
+    SEVERAL_RECOMMENDED = "several recommended"
+    UNKNOWN_ICON = "unknown icon"
 
 
 @dataclass(frozen=True)
@@ -62,6 +70,8 @@ MESSAGES = {
     Kind.TOO_MANY_OPTIONS: f"{{path}}: at most {MAX_OPTIONS} options",
     Kind.DUPLICATE: "{path}: duplicate value",
     Kind.UNKNOWN_LANG: f"{{path}}: one of {', '.join(LANGS)}",
+    Kind.SEVERAL_RECOMMENDED: "{path}: at most one recommended option in a single-choice question; make it multi",
+    Kind.UNKNOWN_ICON: "{path}: a Tabler icon name such as ti-lock",
 }
 
 
@@ -79,7 +89,7 @@ def _keys(item: dict, allowed: set[str], path: str, errors: list[Error]) -> None
     errors.extend(Error(Kind.UNKNOWN_KEY, f"{path}.{key}") for key in sorted(set(item) - allowed))
 
 
-def _options(options: object, path: str, errors: list[Error]) -> None:
+def _options(options: object, multi: bool, path: str, errors: list[Error]) -> None:
     if options is None:
         errors.append(Error(Kind.MISSING, path))
         return
@@ -100,10 +110,19 @@ def _options(options: object, path: str, errors: list[Error]) -> None:
         label = option.get("label")
         _text(label, f"{where}.label", errors)
         _text(option.get("description"), f"{where}.description", errors, required=False)
+        icon = option.get("icon")
+        if icon is not None and not isinstance(icon, str):
+            errors.append(Error(Kind.WRONG_TYPE, f"{where}.icon"))
+        elif icon is not None and not ICON.fullmatch(icon):
+            errors.append(Error(Kind.UNKNOWN_ICON, f"{where}.icon"))
         if isinstance(label, str):
             if label in labels:
                 errors.append(Error(Kind.DUPLICATE, f"{where}.label"))
             labels.add(label)
+    recommended = [o for o in options if isinstance(o, dict) and isinstance(o.get("label"), str)
+                   and RECOMMENDED.search(o["label"])]
+    if not multi and len(recommended) > 1:
+        errors.append(Error(Kind.SEVERAL_RECOMMENDED, path))
 
 
 def validate(form: object) -> list[Error]:
@@ -142,7 +161,7 @@ def validate(form: object) -> list[Error]:
         for flag in ("multi", "required"):
             if flag in question and not isinstance(question[flag], bool):
                 errors.append(Error(Kind.WRONG_TYPE, f"{path}.{flag}"))
-        _options(question.get("options"), f"{path}.options", errors)
+        _options(question.get("options"), question.get("multi") is True, f"{path}.options", errors)
     return errors
 
 
