@@ -10,6 +10,7 @@ Rules shared by every project that opts in with a `## Shared rules` section in i
 - A warning or notice of a skill: a quote block whose first line is the emoji and a bold title (`> ⚠️ **Warning: budget exceeded**`), then the detail.
 - An error or warning from a tool (command, hook, test, script): a heading `### 🛑 FAILURE: <tool>` or `### ⚠️ WARNING: <tool>` (non-blocking), then its raw output in a fenced code block.
 - No GitHub alert blocks (`> [!WARNING]`): the desktop app shows them as plain text.
+- Every ticket, issue, pull request, card, email or calendar event mentioned to the user is a Markdown link to its URL, everywhere (answers, question forms, reports, sub-sessions): `[KAT-290 title](url)`, `[#<n> title](url)`, `[card title](url)`; in an HTML form, `<a href="url" target="_blank">`. The URL comes from the item's tool (`url`, Trello `shortUrl`, calendar `htmlLink`, Gmail `https://mail.google.com/mail/u/0/#all/<threadId>`); unknown, read it with that tool before mentioning the item. The Writing rule below still keeps ticket references out of files.
 
 ## Writing
 
