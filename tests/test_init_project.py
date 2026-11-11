@@ -206,6 +206,28 @@ class InitProjectTest(unittest.TestCase):
             self.assertNotIn(copied, agents)
         self.assertIn("Talk to the user in French.", agents)
 
+    def test_new_agents_md_lists_the_launch_command(self):
+        self.apply({**ANSWERS, "commands": {"tests": "python3 -m unittest", "Launch (gui)": "godot --path ."}})
+        self.assertIn("## Commands\n\n- `python3 -m unittest` — tests\n- `godot --path .` — Launch (gui)\n",
+                      self.read("AGENTS.md"))
+
+    def test_launch_command_is_added_to_the_commands_of_an_existing_agents_md(self):
+        (self.project / "AGENTS.md").write_text("# Sample\n\n## Commands\n\n- `make test` — Tests\n\n## Delicate points\n\n"
+                                                "- Keep me.\n", encoding="utf-8")
+        answers = {**ANSWERS, "commands": {"Tests": "make test", "Launch (terminal)": "python3 app.py"}}
+        changes, _ = self.plan(answers)
+        self.assertIn("add to Commands: Launch (terminal)",
+                      next(c.description for c in changes if c.description.startswith("AGENTS.md")))
+        self.apply(answers)
+        self.assertIn("## Commands\n\n- `make test` — Tests\n- `python3 app.py` — Launch (terminal)\n\n"
+                      "## Delicate points\n", self.read("AGENTS.md"))
+
+    def test_launch_command_already_listed_is_not_added_again(self):
+        (self.project / "AGENTS.md").write_text("# Sample\n\n## Commands\n\n- `python3 app.py` — Launch (gui)\n",
+                                                encoding="utf-8")
+        self.apply({**ANSWERS, "commands": {"Launch (gui)": "python3 app.py"}})
+        self.assertEqual(self.read("AGENTS.md").count("python3 app.py"), 1)
+
     def test_verbatim_copies_of_past_shared_sections_are_removed(self):
         (self.project / "AGENTS.md").write_text(PAST_AGENTS_MD, encoding="utf-8")
         changes, notes = self.plan()
