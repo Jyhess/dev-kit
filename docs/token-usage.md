@@ -26,7 +26,7 @@ From a first analysis of four days of daily use, with Opus at medium effort.
 | action | estimated gain |
 |---|---|
 | Keep sessions short: one ticket per session; past a context threshold, or when resuming after the cache expired, hand over to a new session with a short summary (`plugins/core/scripts/context_size.py`). | 10–15% |
-| Remove unused tools from the prefix with `permissions.deny`: `project-init` writes `DENIED_TOOLS` of `init_project.py` (`Artifact`, built-in browser, `visualize`, `Workflow`, `ScheduleWakeup`…) into the project's settings, and the claude.ai connectors of the local `~/.dev-kit/config.json` into its `settings.local.json`; a project keeps what it uses with `keep_tools`. See below. | ~11% (~22k tokens) |
+| Remove unused tools from the prefix with `permissions.deny`: `project-init` writes `DENIED_TOOLS` of `init_project.py` (`Artifact`, built-in browser, `Workflow`, `ScheduleWakeup`…) into the project's settings, and removes `REQUIRED_TOOLS` (`visualize`, for the `ask` form) from them, and the claude.ai connectors of the local `~/.dev-kit/config.json` into its `settings.local.json`; a project keeps what it uses with `keep_tools`. See below. | ~11% (~22k tokens) |
 | Disable the `anthropic-skills` plugin (docx, pptx, xlsx, pdf…) in coding projects: `"enabledPlugins": {"anthropic-skills@inline": false}` in the project's `.claude/settings.json` (the desktop app loads it as an `@inline` plugin); `project-init` writes it. | ~1% (1.7k tokens of skills listing per session) |
 | Read file ranges instead of whole files and trim command outputs (`head`, `--stat`); do not fetch an object an MCP tool just returned. | a few % (part of the long-context cost) |
 

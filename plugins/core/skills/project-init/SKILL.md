@@ -15,7 +15,7 @@ Before asking anything, read the folder: `README*`, `AGENTS.md`, `CLAUDE.md`, `.
 
 ## 2. Ask one round
 
-Ask with the interactive question tool when the current agent provides one; otherwise ask with concise numbered options in chat. Batch the questions in as few calls as possible (four at most), put the recommended option first and label it "(Recommandé)". Ask only what the files do not answer; when a file suggests an answer, offer it as the recommended option and say where it comes from.
+Ask with the form of the core skill `ask` (its fallbacks without it), as few forms as possible; put the recommended option first and label it "(Recommandé)". Ask only what the files do not answer; when a file suggests an answer, offer it as the recommended option and say where it comes from.
 
 | Topic | Options |
 |---|---|
@@ -38,7 +38,7 @@ Large projects take a wiki and Linear; small ones (stellar) take `docs/` and Git
 
 The glossary holds the domain terms: the notions the rules, the player or the user talk about, not technical terms. Read the code (type, class and module names), the documentation and the interface texts, and list the domain notions with, for each one, the French and English terms (the English one is the code's), the displayed terms when they differ, a one-line definition, and the synonyms found for it.
 
-- Ask about the **ambiguous** notions only — several words for one notion, one word for several notions, a French term with no clear English counterpart — in rounds of interactive questions, the proposed term first and labelled "(Recommandé)".
+- Ask about the **ambiguous** notions only — several words for one notion, one word for several notions, a French term with no clear English counterpart — in rounds of `ask` forms, the proposed term first and labelled "(Recommandé)".
 - The other notions go in as proposed: The user approves them with the whole plan in step 3, where the full glossary is shown.
 - Aim for the whole step to take under 10 minutes; past about 150 notions, keep the most central and say so.
 

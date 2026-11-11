@@ -45,7 +45,7 @@ Budget: none, assumed. Time spent goes into the work journal ([dev-journal.md](d
 - **C7 — No copy.** No local skill of a project has the name of a shared skill; a project completes a shared skill with a short local skill or an instruction section; a dev-kit check script verifies it.
 - **C8 — Duplication removed.** No project or project wiki contains a copy of `cadrage` or `linear`; at most short local skills in French remain.
 - **C9 — Generic rule.** When a local rule proves generic, Claude proposes to move it into dev-kit and does not do it on its own. `[manuel]`
-- **C10 — `clarify`.** Each round is the whole frontier asked with interactive questions (recommended option first, at most four per call); inconsistencies come first and block the level's gate. `[manuel]`
+- **C10 — `clarify`.** Each round is the whole frontier asked in one form of the `ask` skill (recommended option first, at most ten questions); inconsistencies come first and block the level's gate. `[manuel]`
 - **C11 — Tracking.** `tracking-linear` applies the generic Linear rules; tickets carry points but no time, velocity is measured in points, and reviews take the project's hours for the period from the journal; `tracking-github-issues` follows the same flow (issue, branch, PR with `Fixes #n`, `[manuel]` criteria recalled) without points or time. `[manuel]`
 - **C12 — Two systems.** Every dev-kit script or hook runs on Windows and macOS with Python 3; the pre-push hook checks them on each machine, CI on Linux.
 - **C13 — Journal labels.** Work in dev-kit, the journal included, is logged under `--project dev-kit`, category `organisation` or `cadrage`. `[manuel]`

@@ -8,7 +8,6 @@
     "deny": [
       "Artifact",
       "mcp__Claude_Browser",
-      "mcp__visualize",
       "Workflow",
       "ScheduleWakeup",
       "SuggestPluginInstall",

@@ -307,6 +307,18 @@ class InitProjectTest(unittest.TestCase):
         changes, _ = self.plan({**ANSWERS, "tracking": "linear", "keep_tools": ["mcp__Claude_Browser"]})
         self.assertFalse(any(".claude/settings.json" in c.description for c in changes))
 
+    def test_required_tools_are_allowed_again(self):
+        self.assertFalse(set(init_project.REQUIRED_TOOLS) & set(init_project.DENIED_TOOLS))
+        (self.project / ".claude").mkdir()
+        path = self.project / ".claude" / "settings.json"
+        path.write_text(json.dumps({"permissions": {"deny": ["Artifact", "mcp__visualize"]}}), encoding="utf-8")
+        changes, _ = self.plan()
+        self.assertTrue(any("allow mcp__visualize" in c.description for c in changes))
+        self.apply()
+        deny = json.loads(path.read_text(encoding="utf-8"))["permissions"]["deny"]
+        self.assertNotIn("mcp__visualize", deny)
+        self.assertEqual(deny[0], "Artifact")
+
     def test_local_connectors_are_denied_in_local_settings_except_the_kept_ones(self):
         self.apply({**ANSWERS, "tracking": "linear", "keep_tools": ["mail"]})
         deny = json.loads(self.read(".claude/settings.local.json"))["permissions"]["deny"]

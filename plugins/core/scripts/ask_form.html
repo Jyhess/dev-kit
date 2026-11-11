@@ -1,0 +1,134 @@
+<style>
+.af{font:15px/1.45 system-ui,sans-serif;color:CanvasText}
+.af .qs{display:flex;flex-direction:column;gap:18px;padding-bottom:8px}
+.af fieldset{border:1px solid color-mix(in srgb,CanvasText 25%,transparent);border-radius:10px;padding:12px 14px;margin:0}
+.af legend{font-weight:600;padding:0 4px}
+.af .hint{margin:2px 0 10px;font-size:13px;opacity:.75}
+.af .opts{display:flex;gap:8px}
+.af .chips{flex-wrap:wrap}.af .cards{flex-direction:column}
+.af button{font:inherit;color:inherit;min-height:44px;cursor:pointer}
+.af .opt{display:flex;gap:10px;align-items:flex-start;text-align:left;background:transparent;border:1.5px solid color-mix(in srgb,CanvasText 40%,transparent);border-radius:8px;padding:10px 12px}
+.af .chips .opt{align-items:center;border-radius:22px;padding:8px 14px}
+.af .opt[aria-pressed=true]{background:CanvasText;color:Canvas;border-color:CanvasText;font-weight:600}
+.af .ind{flex:none;width:1.2em;text-align:center}
+.af .lb{font-weight:600}.af .ds{display:block;font-weight:400;white-space:pre-line;opacity:.85;margin-top:2px}
+.af .link{background:none;border:none;padding:0 2px;text-decoration:underline;margin-top:6px}
+.af textarea{display:block;box-sizing:border-box;width:100%;min-height:72px;margin-top:4px;font:inherit;padding:8px;border-radius:8px}
+.af button:focus-visible,.af textarea:focus-visible{outline:3px solid CanvasText;outline-offset:2px}
+.af .bar{position:sticky;bottom:0;display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 0;background:Canvas;border-top:1px solid color-mix(in srgb,CanvasText 25%,transparent)}
+.af progress{flex:1;min-width:80px;height:8px}
+.af .act{padding:0 18px;border-radius:8px;border:1.5px solid CanvasText;background:transparent}
+.af .send{background:CanvasText;color:Canvas;font-weight:600}
+.af .act:disabled{opacity:.4;cursor:not-allowed}
+.af .recap{white-space:pre-line}
+.af a{color:inherit;text-decoration:underline}
+</style>
+<div class="af" id="af"></div>
+<script>
+const DATA = /*DATA*/null;
+// logic:start
+const LABELS = {
+  fr: {single: "Un seul choix", multi: "Plusieurs choix possibles", orFree: "ou réponse libre", optional: "facultative",
+    other: "Répondre autrement", removeOther: "Retirer la réponse libre", free: "Réponse libre",
+    counter: "{n} sur {m} répondues", skip: "Passer", send: "Envoyer les réponses", answers: "Réponses :",
+    skipped: "Questions passées, sans réponse.", none: "sans réponse", open: "« ", close: " »"},
+  en: {single: "Single choice", multi: "Multiple choices", orFree: "or free answer", optional: "optional",
+    other: "Answer another way", removeOther: "Remove the free answer", free: "Free answer",
+    counter: "{n} of {m} answered", skip: "Skip", send: "Send the answers", answers: "Answers:",
+    skipped: "Questions skipped, no answer.", none: "no answer", open: "“", close: "”"},
+};
+const LINK = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+function segments(text) {
+  const parts = text.split(LINK), out = [];
+  for (let k = 0; k < parts.length; k += 3) {
+    if (parts[k]) out.push({text: parts[k]});
+    if (k + 1 < parts.length) out.push({text: parts[k + 1], url: parts[k + 2]});
+  }
+  return out;
+}
+function newState(questions) { return questions.map(() => ({selected: [], free: "", open: false})); }
+function answered(state) { return state.selected.length > 0 || state.free.trim() !== ""; }
+function canSend(questions, states) { return questions.every((q, i) => q.required === false || answered(states[i])); }
+function toggle(question, state, label) {
+  const on = state.selected.includes(label);
+  const chosen = question.multi ? (on ? state.selected.filter(l => l !== label) : state.selected.concat(label))
+    : (on ? [] : [label]);
+  state.selected = question.options.map(o => o.label).filter(l => chosen.includes(l));
+}
+function result(questions, states, status) {
+  return {status, answers: questions.map((q, i) => {
+    const s = states[i], free = s.free.trim();
+    return status === "skipped" ? {id: q.id, selected: [], freeText: null}
+      : {id: q.id, selected: s.selected.slice(), freeText: s.open && free ? free : null};
+  })};
+}
+function recap(questions, res, L) {
+  if (res.status === "skipped") return L.skipped;
+  return [L.answers].concat(res.answers.map((a, i) => {
+    const parts = [];
+    if (a.selected.length) parts.push(a.selected.join(", "));
+    if (a.freeText !== null) parts.push(L.open + a.freeText + L.close);
+    return `${i + 1}. ${questions[i].title} : ${parts.length ? parts.join(" ; ") : L.none}`;
+  })).join("\n");
+}
+// logic:end
+(function () {
+  const root = document.getElementById("af"), qs = DATA.questions, L = LABELS[DATA.lang || "fr"], st = newState(qs);
+  const el = (tag, props, ...kids) => { const e = Object.assign(document.createElement(tag), props || {}); e.append(...kids); return e; };
+  const list = el("div", {className: "qs"});
+  const rich = text => segments(text).map(s => s.url
+    ? el("a", {href: s.url, target: "_blank", rel: "noopener", textContent: s.text}) : s.text);
+  if (DATA.intro) list.append(el("p", {}, ...rich(DATA.intro)));
+  const refresh = [];
+  qs.forEach((q, i) => {
+    const s = st[i], cards = q.options.some(o => o.description);
+    const opts = el("div", {className: "opts " + (cards ? "cards" : "chips")});
+    opts.setAttribute("role", "group"); opts.setAttribute("aria-label", q.title.replace(LINK, "$1"));
+    const buttons = q.options.map(o => {
+      const ind = el("span", {className: "ind"}); ind.setAttribute("aria-hidden", "true");
+      const text = el("span", {}, el("span", {className: "lb", textContent: o.label}));
+      if (o.description) text.append(el("span", {className: "ds", textContent: o.description}));
+      const b = el("button", {type: "button", className: "opt"}, ind, text);
+      b.onclick = () => { toggle(q, s, o.label); update(); };
+      opts.append(b); return [b, ind, o.label];
+    });
+    const area = el("textarea", {placeholder: q.freeTextPlaceholder || "", id: `af-free-${i}`});
+    area.oninput = () => { s.free = area.value; update(false); };
+    const zone = el("label", {hidden: true}, L.free, area);
+    const link = el("button", {type: "button", className: "link", textContent: L.other});
+    link.onclick = () => {
+      s.open = !s.open; if (!s.open) { s.free = ""; area.value = ""; }
+      zone.hidden = !s.open; link.textContent = s.open ? L.removeOther : L.other; link.setAttribute("aria-expanded", s.open);
+      if (s.open) area.focus(); update();
+    };
+    link.setAttribute("aria-expanded", "false");
+    const hint = (q.multi ? L.multi : L.single) + ", " + L.orFree + (q.required === false ? " · " + L.optional : "");
+    list.append(el("fieldset", {}, el("legend", {}, `${i + 1}. `, ...rich(q.title)),
+      el("p", {className: "hint", textContent: hint}), opts, link, zone));
+    refresh.push(() => buttons.forEach(([b, ind, label]) => {
+      const on = s.selected.includes(label);
+      b.setAttribute("aria-pressed", on);
+      ind.textContent = q.multi ? (on ? "☑" : "☐") : (on ? "●" : "○");
+    }));
+  });
+  const count = el("span"), bar = el("progress", {max: qs.length});
+  count.setAttribute("role", "status"); bar.setAttribute("aria-hidden", "true");
+  const skip = el("button", {type: "button", className: "act", textContent: L.skip});
+  const send = el("button", {type: "button", className: "act send", textContent: L.send});
+  function update(options = true) {
+    if (options) refresh.forEach(f => f());
+    const n = st.filter(answered).length;
+    count.textContent = L.counter.replace("{n}", n).replace("{m}", qs.length);
+    bar.value = n; send.disabled = !canSend(qs, st);
+  }
+  function finish(status) {
+    const text = recap(qs, result(qs, st, status), L);
+    root.replaceChildren(el("p", {className: "recap", textContent: text}));
+    if (typeof sendPrompt === "function") sendPrompt(text); else console.log(text);
+  }
+  skip.onclick = () => finish("skipped");
+  send.onclick = () => { if (canSend(qs, st)) finish("submitted"); };
+  root.append(list, el("div", {className: "bar"}, count, bar, skip, send));
+  update();
+})();
+</script>

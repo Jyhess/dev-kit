@@ -19,10 +19,10 @@ Move to the next level only when the current one has no open question, no unreso
 
 Map the subject as a **decision tree**: each decision opens the decisions that depend on it. The **frontier** is every decision whose prerequisites are settled, the questions that can be asked now without guessing at answers not heard yet.
 
-Each round asks the whole frontier at once, in one inline HTML form (`show_widget`): every question stacked, each with its choices (single choice, multiple choice or free text) and a free-text field for another answer, and one submit button that sends every answer in one message (`sendPrompt`), each prefixed by its question's header. Without that tool, use the agent's interactive question tool (at most four questions per call: split the frontier into consecutive calls, inconsistencies first); without either, show concise numbered options in chat and wait for the user's reply:
+Each round asks the whole frontier at once, in one form of the core skill `ask` (its fallbacks without it); beyond 10 questions, the inconsistencies go in the first form:
 
 - Inconsistencies come first, one question each: the two statements and their sources in the question, the proposed resolution as the first option.
-- Each question has a short header, two to four options, and the recommended option first, labelled "(Recommandé)", with its reason in one line in its description. The user can always type another answer.
+- Each question has a short title, two to eight options, and the recommended option first, labelled "(Recommandé)", with its reason in one line in its description. The user can always type another answer.
 - Before the form, give in one or two lines of text the context the options do not carry (facts looked up, what the round decides).
 - A question that depends on another question of the same round waits for the next round.
 
