@@ -298,7 +298,7 @@ class InitProjectTest(unittest.TestCase):
             encoding="utf-8")
         self.apply()
         settings = json.loads(self.read(".claude/settings.json"))
-        self.assertEqual(settings["permissions"]["allow"], ["Bash(ls)"])
+        self.assertEqual(settings["permissions"]["allow"], ["Bash(ls)", *init_project.ALLOWED_TOOLS])
         self.assertEqual(settings["permissions"]["deny"], list(init_project.DENIED_TOOLS))
         self.assertTrue(settings["enabledPlugins"]["other@x"])
         self.assertTrue(settings["enabledPlugins"]["docs-folder@jyhess"])
@@ -340,6 +340,13 @@ class InitProjectTest(unittest.TestCase):
         deny = json.loads(path.read_text(encoding="utf-8"))["permissions"]["deny"]
         self.assertNotIn("mcp__visualize", deny)
         self.assertEqual(deny[0], "Artifact")
+
+    def test_allowed_tools_are_added_once(self):
+        self.apply()
+        allow = json.loads(self.read(".claude/settings.json"))["permissions"]["allow"]
+        self.assertEqual(allow, list(init_project.ALLOWED_TOOLS))
+        changes, _ = self.plan()
+        self.assertFalse(any(".claude/settings.json" in c.description for c in changes))
 
     def test_local_connectors_are_denied_in_local_settings_except_the_kept_ones(self):
         self.apply({**ANSWERS, "tracking": "linear", "keep_tools": ["mail"]})
