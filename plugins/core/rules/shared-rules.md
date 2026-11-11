@@ -6,11 +6,11 @@ Rules shared by every project that opts in with a `## Shared rules` section in i
 
 - A question gets an answer, not an action: change files, tickets or remote state only on an explicit request; "Is it possible to…?" is a question: answer, propose, wait.
 - Before designing anything non-trivial, use the shared clarification workflow.
-- Several questions at once go in one inline HTML form (`show_widget`): every question stacked with its choices (single, multiple, free text), one submit button sending all the answers in one `sendPrompt`; without that tool, the native question tool.
+- Every question with choices, alone or several at once, goes in the form of the core skill `ask` (`show_widget`), its fallbacks when that tool is missing; an open question needing a long written answer stays in text.
 - A warning or notice of a skill: a quote block whose first line is the emoji and a bold title (`> ⚠️ **Warning: budget exceeded**`), then the detail.
 - An error or warning from a tool (command, hook, test, script): a heading `### 🛑 FAILURE: <tool>` or `### ⚠️ WARNING: <tool>` (non-blocking), then its raw output in a fenced code block.
 - No GitHub alert blocks (`> [!WARNING]`): the desktop app shows them as plain text.
-- Every ticket, issue, pull request, card, email or calendar event mentioned to the user is a Markdown link to its URL, everywhere (answers, question forms, reports, sub-sessions): `[KAT-290 title](url)`, `[#<n> title](url)`, `[card title](url)`; in an HTML form, `<a href="url" target="_blank">`. The URL comes from the item's tool (`url`, Trello `shortUrl`, calendar `htmlLink`, Gmail `https://mail.google.com/mail/u/0/#all/<threadId>`); unknown, read it with that tool before mentioning the item. The Writing rule below still keeps ticket references out of files.
+- Every ticket, issue, pull request, card, email or calendar event mentioned to the user is a Markdown link to its URL, everywhere (answers, question forms, reports, sub-sessions): `[KAT-290 title](url)`, `[#<n> title](url)`, `[card title](url)`. The URL comes from the item's tool (`url`, Trello `shortUrl`, calendar `htmlLink`, Gmail `https://mail.google.com/mail/u/0/#all/<threadId>`); unknown, read it with that tool before mentioning the item. The Writing rule below still keeps ticket references out of files.
 
 ## Writing
 

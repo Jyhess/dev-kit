@@ -9,7 +9,7 @@ are appended, CLAUDE.md imports AGENTS.md, missing design principle pages
 (docs/design/, which AGENTS.md points to) are created, missing .gitignore / .gitattributes
 lines are added (Python entries when there is a pyproject.toml), enabledPlugins keys are merged (the desktop app's
 anthropic-skills plugin is disabled unless the project already sets it), and the
-unused tools of DENIED_TOOLS are added to permissions.deny. The claude.ai
+unused tools of DENIED_TOOLS are added to permissions.deny, REQUIRED_TOOLS removed from it. The claude.ai
 connectors of the local ~/.dev-kit/config.json ({"connectors": {name: "mcp__<id>"}};
 their ids belong to the account, not to dev-kit) are denied in the unversioned
 .claude/settings.local.json of the main clone, which Claude Code also reads from worktrees;
@@ -102,7 +102,6 @@ DISABLED_PLUGINS = ("anthropic-skills@inline",)
 DENIED_TOOLS = {
     "Artifact": "Artifact pages (9.4k tokens)",
     "mcp__Claude_Browser": "built-in browser (5.6k)",
-    "mcp__visualize": "inline widgets",
     "Workflow": "multi-agent workflows",
     "ScheduleWakeup": "/loop pacing",
     "SuggestPluginInstall": "plugin suggestions",
@@ -111,6 +110,8 @@ DENIED_TOOLS = {
     "SendUserFile": "file cards",
     "mcp__claude-in-chrome": "Claude in Chrome",
 }
+# Tools the shared rules need (the `ask` form): removed from a project's permissions.deny.
+REQUIRED_TOOLS = ("mcp__visualize",)
 # Machine-local configuration, outside every repository: {"connectors": {name: "mcp__<id>"}}.
 LOCAL_CONFIG = Path.home() / ".dev-kit" / "config.json"
 LINEAR_CONNECTOR = "linear"  # connector name kept for projects tracked in Linear
@@ -489,7 +490,8 @@ def plan_settings(target: Path, answers: dict, available: set[str]) -> tuple[lis
     keep = set(answers.get("keep_tools", []))
     deny = settings.get("permissions", {}).get("deny", [])
     denied = [t for t in DENIED_TOOLS if t not in keep and t not in deny]
-    if not new and not off and not denied:
+    allowed = [t for t in REQUIRED_TOOLS if t in deny]
+    if not new and not off and not denied and not allowed:
         return [], notes
     for i in new:
         enabled[i] = True
@@ -497,9 +499,12 @@ def plan_settings(target: Path, answers: dict, available: set[str]) -> tuple[lis
         enabled[i] = False
     if denied:
         settings.setdefault("permissions", {}).setdefault("deny", []).extend(denied)
+    if allowed:
+        settings["permissions"]["deny"] = [t for t in settings["permissions"]["deny"] if t not in allowed]
     verb = "update" if path.exists() else "create"
     actions = (([f"enable {', '.join(new)}"] if new else []) + ([f"disable {', '.join(off)}"] if off else [])
-               + ([f"deny {len(denied)} unused tools"] if denied else []))
+               + ([f"deny {len(denied)} unused tools"] if denied else [])
+               + ([f"allow {', '.join(allowed)}"] if allowed else []))
     return [Change(f"{verb} .claude/settings.json ({'; '.join(actions)})",
                    write(path, json.dumps(settings, indent=2, ensure_ascii=False) + "\n"))], notes
 
