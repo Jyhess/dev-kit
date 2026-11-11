@@ -25,7 +25,8 @@ Answers (JSON): name, purpose, audience, stack (strings); docs ("wiki-github",
 "docs-folder" or "none"); tracking ("linear", "github-issues" or "none");
 languages ({"chat", "docs", "code", "wiki"}: "fr" or "en", defaults fr/en/en/fr;
 AGENTS.md and CLAUDE.md are in English whatever they say);
-commands ({label: command}); verify (command run before each push and in CI, or null);
+commands ({label: command}; a label "Launch (gui)", "Launch (terminal)" or "Launch (web <port>)" for each
+program to start, also added to the Commands section of an existing AGENTS.md); verify (command run before each push and in CI, or null);
 ci (bool, needs verify: the Verify workflow, the PR template and its check);
 auto_merge (bool: copy the workflow that merges low-risk pull requests by itself,
 see dev-kit's docs/auto-merge.md); glossary (path relative to the project, default docs/glossary.md, or ../<name>-wiki/Glossaire.md for a wiki, Glossary.md when the
@@ -119,6 +120,8 @@ LINEAR_CONNECTOR = "linear"  # connector name kept for projects tracked in Linea
 # AGENTS.md and CLAUDE.md are in English whatever the documentation language: shorter, and one template
 # to keep within its budget.
 LANGUAGE_NAMES = {"fr": "French", "en": "English"}
+# Label prefix of the commands that start the program, e.g. "Launch (gui)" (shared rule "Manual checks").
+LAUNCH_LABEL = "Launch ("
 INSTRUCTIONS = {
     "wiki_line": "\n- The wiki is in {wiki}.",
     "docs": {"wiki-github": "Documentation lives in the project's GitHub wiki repository.",
@@ -340,6 +343,25 @@ def without_shared_copies(text: str, values: dict[str, str]) -> tuple[str, list[
     return "".join(kept), removed, deviations
 
 
+def with_launch_lines(text: str, commands: dict[str, str]) -> tuple[str, list[str]]:
+    """The text with the answered launch commands missing from its Commands section appended to it; their labels.
+
+    Only launch commands are added: the other commands of an existing section are the project's own wording.
+    """
+    lines = [(label, f"- `{cmd}` — {label}") for label, cmd in commands.items()
+             if label.startswith(LAUNCH_LABEL)]
+    match = re.search(r"(?ms)^## Commands[ \t]*\n.*?(?=^## |\Z)", text)
+    if not match:
+        return text, []
+    section = match.group(0)
+    added = [(label, line) for label, line in lines if f"`{commands[label]}`" not in section]
+    if not added:
+        return text, []
+    body = section.rstrip("\n").replace("\n" + INSTRUCTIONS["no_commands"], "")
+    new = body + "\n" + "".join(line + "\n" for _, line in added) + ("\n" if match.end() < len(text) else "")
+    return text[:match.start()] + new + text[match.end():], [label for label, _ in added]
+
+
 def plan_agents_md(target: Path, answers: dict) -> tuple[list[Change], list[str]]:
     """Create AGENTS.md, or complete it: verbatim copies of shared rules give way to the Shared rules section."""
     path = target / "AGENTS.md"
@@ -348,12 +370,15 @@ def plan_agents_md(target: Path, answers: dict) -> tuple[list[Change], list[str]
         return [Change("create AGENTS.md", write(path, wanted))], []
     current = path.read_text(encoding="utf-8")
     remaining, removed, deviations = without_shared_copies(current, instruction_values(answers))
+    remaining, launches = with_launch_lines(remaining, answers.get("commands") or {})
     existing = sections(remaining)
     missing = [(title, text) for title, text in sections(wanted).items() if title not in existing]
-    if not missing and not removed:
+    if not missing and not removed and not launches:
         return [], deviations
     merged = remaining.rstrip("\n") + "\n" + "".join("\n" + text.rstrip("\n") + "\n" for _, text in missing)
     done = [f"remove the copies of the shared rules: {', '.join(removed)}"] if removed else []
+    if launches:
+        done.append(f"add to Commands: {', '.join(launches)}")
     if missing:
         done.append(f"add the sections {', '.join(text.splitlines()[0][3:] for _, text in missing)}")
     return [Change(f"AGENTS.md: {'; '.join(done)} (other sections kept as they are)", write(path, merged))], deviations

@@ -30,6 +30,13 @@ Rules shared by every project that opts in with a `## Shared rules` section in i
 
 - Anything deliberately left incomplete or simplified is written where it applies (README, doc, comment, or a TODO, the only line that may cite a ticket, removed when that ticket is resolved) and listed at the end of the task and in the PR; their tickets are created with the user's agreement.
 
+## Manual checks
+
+- The programs of a project are its `## Commands` lines labelled `Launch (gui)`, `Launch (terminal)` or `Launch (web <port>)`.
+- When a task with `[manual]` / `[manuel]` criteria or a `## Manual checks` section ends, give each launch command as a one-line bash block; in the Claude desktop app, also offer in the next-step box a "Lancer" button for the program the checks need (two at most).
+- On a click, run it from the task's worktree: `gui` as a background command, whose output you read on failure; `terminal` in a new tab of the Terminal panel; `web` as `terminal`, then open `http://localhost:<port>` in the built-in browser.
+- No launch line: no button; offer to add one.
+
 ## Git
 
 - One commit per feature, fix or change; commit messages in the language the project's "Communication and languages" section gives for code.

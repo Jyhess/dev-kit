@@ -21,6 +21,7 @@ Ask with the form of the core skill `ask` (its fallbacks without it), as few for
 |---|---|
 | Name, purpose and audience | the values read in the files, or "Autre" to type them |
 | Stack and commands (build, tests, verification run by the pre-push hook) | the values read in the files |
+| Launch commands (programs started for manual checks) | each program read in the files, labelled `Launch (gui)`, `Launch (terminal)` or `Launch (web <port>)` in `commands` · none |
 | Documentation | GitHub wiki (`wiki-github`, large projects) · `docs/` folder (`docs-folder`, small projects) · none |
 | Tracking | Linear (`linear`, large projects) · GitHub issues (`github-issues`, small projects) · none |
 | Languages | defaults (chat French, documentation and code English, wiki French) · exceptions; `AGENTS.md` and `CLAUDE.md` stay in English |
