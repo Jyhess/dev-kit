@@ -79,6 +79,42 @@ line-length = 120
 """
 
 
+GODOT = """; Engine configuration file.
+config_version=5
+
+[application]
+
+config/name="Atelier"
+run/main_scene="res://scenes/garage.tscn"
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+
+[autoload]
+
+Game="*res://game.gd"
+
+[dotnet]
+
+project/assembly_name="Atelier"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/gdUnit4/plugin.cfg")
+
+[input]
+
+fire={
+"deadzone": 0.2,
+"events": [Object(InputEventMouseButton,"button_index":1,"pressed":false)
+]
+}
+
+[physics]
+
+common/physics_interpolation=true
+"""
+GODOT_ACTION = 'aim_next={\n"deadzone": 0.2,\n"events": []\n}\n'
+
+
 def manifest_signals(path, base, head):
     return structure.signals([("M", path)], set(), set(), {}, {path: (base, head)})
 
@@ -93,7 +129,10 @@ class ManifestDependenciesTest(unittest.TestCase):
                  '{"version": "1.1.0", "scripts": {"t": "jest"}, "dependencies": {"react": "^19"}}'),
                 ("pyproject.toml", PYPROJECT, PYPROJECT.replace("120", "100").replace(">=2", ">=2.31")),
                 ("requirements-dev.txt", "# tools\nrequests>=2\n-r requirements.txt\n",
-                 "requests==2.31  # pinned\n-r  requirements.txt\n")):
+                 "requests==2.31  # pinned\n-r  requirements.txt\n"),
+                ("project.godot", GODOT, GODOT.replace("fire={", GODOT_ACTION + "fire={")
+                 .replace('"Atelier"\nrun', '"Atelier 2"\nrun').replace("interpolation=true", "interpolation=false")
+                 + '\n[layer_names]\n\n3d_physics/layer_1="ships"\n')):
             with self.subTest(path=path):
                 self.assertEqual(manifest_signals(path, base, head), [])
 
@@ -113,7 +152,19 @@ class ManifestDependenciesTest(unittest.TestCase):
                  "+devDependencies jest, +workspace app"),
                 ("pyproject.toml", PYPROJECT, PYPROJECT.replace('"Rich[jupyter]==13.0"', '"httpx"'),
                  "+dependencies httpx, -dependencies rich"),
-                ("requirements.txt", "requests\n", "requests\nPy_Yaml\n", "+py-yaml")):
+                ("requirements.txt", "requests\n", "requests\nPy_Yaml\n", "+py-yaml"),
+                ("project.godot", GODOT, GODOT.replace('"4.7"', '"4.8"'),
+                 "+application config/features 4.8, -application config/features 4.7"),
+                ("project.godot", GODOT, GODOT.replace("garage", "menu"),
+                 '+application run/main_scene "res://scenes/menu.tscn", '
+                 '-application run/main_scene "res://scenes/garage.tscn"'),
+                ("project.godot", GODOT, GODOT.replace("[dotnet]", 'Audio="*res://audio.gd"\n\n[dotnet]'),
+                 '+autoload Audio "*res://audio.gd"'),
+                ("project.godot", GODOT, GODOT.replace('PackedStringArray("res://addons/gdUnit4/plugin.cfg")',
+                                                       "PackedStringArray()"),
+                 "-editor_plugins enabled res://addons/gdUnit4/plugin.cfg"),
+                ("project.godot", GODOT, GODOT.replace("config_version=5", "config_version=6"),
+                 "+project config_version 6, -project config_version 5")):
             with self.subTest(path=path, detail=detail):
                 self.assertEqual(manifest_signals(path, base, head), [Signal(Kind.MANIFEST_CHANGED, path, detail)])
 
