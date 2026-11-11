@@ -63,6 +63,24 @@ class ValidateTest(unittest.TestCase):
         self.assertEqual(ask_form.validate({}), [Error(Kind.MISSING, "questions")])
         self.assertEqual(ask_form.validate({"questions": {}}), [Error(Kind.WRONG_TYPE, "questions")])
 
+    def test_recommended_options(self):
+        single = question(options=[{"label": "A (Recommandé)"}, {"label": "B (Recommended)"}])
+        self.assertEqual(ask_form.validate({"questions": [single]}),
+                         [Error(Kind.SEVERAL_RECOMMENDED, "questions[0].options")])
+        self.assertEqual(ask_form.validate({"questions": [dict(single, multi=True)]}), [])
+        one = question(options=[{"label": "A"}, {"label": "B (Recommandé)"}])
+        self.assertEqual(ask_form.validate({"questions": [one]}), [])
+
+    def test_icons(self):
+        good = question(options=[{"label": "A", "icon": "ti-lock"}, {"label": "B", "icon": "ti-brand-git"}])
+        self.assertEqual(ask_form.validate({"questions": [good]}), [])
+        bad = question(options=[{"label": "A", "icon": 3}, {"label": "B", "icon": 'ti-x" onclick="y'},
+                                {"label": "C", "icon": "lock"}])
+        self.assertEqual(ask_form.validate({"questions": [bad]}), [
+            Error(Kind.WRONG_TYPE, "questions[0].options[0].icon"),
+            Error(Kind.UNKNOWN_ICON, "questions[0].options[1].icon"),
+            Error(Kind.UNKNOWN_ICON, "questions[0].options[2].icon")])
+
     def test_every_kind_has_a_message(self):
         self.assertEqual(set(ask_form.MESSAGES), set(Kind))
 
@@ -127,6 +145,15 @@ assert.strictEqual(recap(qs, skipped, LABELS.en), "Questions skipped, no answer.
 assert.deepStrictEqual(segments("See [#6 Form](https://github.com/o/r/issues/6) and [bad](javascript:x)."), [
   {text: "See "}, {text: "#6 Form", url: "https://github.com/o/r/issues/6"}, {text: " and [bad](javascript:x)."}]);
 assert.deepStrictEqual(segments("Plain"), [{text: "Plain"}]);
+const rec = [
+  {id: "one", title: "Un", options: [{label: "A"}, {label: "B (Recommandé)"}]},
+  {id: "many", title: "Plusieurs", multi: true,
+   options: [{label: "A (Recommended)"}, {label: "B"}, {label: "C (Recommandé)"}]},
+  {id: "none", title: "Aucun", options: [{label: "A"}, {label: "B"}]},
+];
+const rst = newState(rec);
+assert.deepStrictEqual(rst.map(s => s.selected), [["B (Recommandé)"], ["A (Recommended)", "C (Recommandé)"], []]);
+assert.deepStrictEqual(rst.map(answered), [true, true, false]);
 """
 
 

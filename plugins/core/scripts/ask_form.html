@@ -1,24 +1,23 @@
 <style>
-.af{font:15px/1.45 system-ui,sans-serif;color:CanvasText}
-.af .qs{display:flex;flex-direction:column;gap:18px;padding-bottom:8px}
-.af fieldset{border:1px solid color-mix(in srgb,CanvasText 25%,transparent);border-radius:10px;padding:12px 14px;margin:0}
-.af legend{font-weight:600;padding:0 4px}
-.af .hint{margin:2px 0 10px;font-size:13px;opacity:.75}
+.af{font:15px/1.45 var(--font-sans,system-ui,sans-serif);color:var(--text-primary,CanvasText)}
+.af .qs{display:flex;flex-direction:column;gap:12px;padding-bottom:8px}
+.af fieldset{border:none;border-radius:12px;padding:14px 16px;margin:0;min-width:0;background:color-mix(in srgb,var(--text-primary,CanvasText) 3.5%,var(--surface-1,Canvas))}
+.af legend{float:left;width:100%;padding:0;font-size:16px;font-weight:500}
+.af .hint{clear:both;margin:0;padding:2px 0 12px;font-size:13px;color:var(--text-secondary,GrayText)}
 .af .opts{display:flex;gap:8px}
 .af .chips{flex-wrap:wrap}.af .cards{flex-direction:column}
-.af button{font:inherit;color:inherit;min-height:44px;cursor:pointer}
-.af .opt{display:flex;gap:10px;align-items:flex-start;text-align:left;background:transparent;border:1.5px solid color-mix(in srgb,CanvasText 40%,transparent);border-radius:8px;padding:10px 12px}
-.af .chips .opt{align-items:center;border-radius:22px;padding:8px 14px}
-.af .opt[aria-pressed=true]{background:CanvasText;color:Canvas;border-color:CanvasText;font-weight:600}
-.af .ind{flex:none;width:1.2em;text-align:center}
-.af .lb{font-weight:600}.af .ds{display:block;font-weight:400;white-space:pre-line;opacity:.85;margin-top:2px}
-.af .link{background:none;border:none;padding:0 2px;text-decoration:underline;margin-top:6px}
+.af button{font:inherit;color:inherit;min-height:40px;cursor:pointer}
+.af .opt{display:flex;gap:10px;align-items:flex-start;text-align:left;font-size:14px;border-radius:var(--radius,8px);box-shadow:0 1px 2px rgba(0,0,0,.08);transition:background .12s,border-color .12s}
+.af .chips .opt{align-items:center}
+.af .opt i{font-size:18px;flex:none;margin-top:1px}
+.af .lb{font-weight:500}.af .ds{display:block;font-size:13px;white-space:pre-line;margin-top:2px}
+.af .link{background:none;border:none;padding:0 2px;min-height:32px;font-size:13px;text-decoration:underline;margin-top:8px;color:var(--text-secondary,GrayText)}
 .af textarea{display:block;box-sizing:border-box;width:100%;min-height:72px;margin-top:4px;font:inherit;padding:8px;border-radius:8px}
-.af button:focus-visible,.af textarea:focus-visible{outline:3px solid CanvasText;outline-offset:2px}
-.af .bar{position:sticky;bottom:0;display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 0;background:Canvas;border-top:1px solid color-mix(in srgb,CanvasText 25%,transparent)}
+.af button:focus-visible,.af textarea:focus-visible{outline:2px solid var(--fill-accent,Highlight);outline-offset:2px}
+.af .bar{position:sticky;bottom:0;display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 0;font-size:13px;color:var(--text-secondary,GrayText);background:var(--surface-0,Canvas);border-top:0.5px solid var(--border,GrayText)}
 .af progress{flex:1;min-width:80px;height:8px}
-.af .act{padding:0 18px;border-radius:8px;border:1.5px solid CanvasText;background:transparent}
-.af .send{background:CanvasText;color:Canvas;font-weight:600}
+.af .act{padding:0 18px;font-size:14px;border-radius:var(--radius,8px);border:1px solid var(--border-stronger,CanvasText);background:transparent;color:var(--text-primary,CanvasText)}
+.af .send{background:var(--fill-primary,CanvasText);color:var(--on-primary,Canvas);border-color:var(--fill-primary,CanvasText);font-weight:500}
 .af .act:disabled{opacity:.4;cursor:not-allowed}
 .af .recap{white-space:pre-line}
 .af a{color:inherit;text-decoration:underline}
@@ -37,6 +36,8 @@ const LABELS = {
     counter: "{n} of {m} answered", skip: "Skip", send: "Send the answers", answers: "Answers:",
     skipped: "Questions skipped, no answer.", none: "no answer", open: "“", close: "”"},
 };
+// Must match RECOMMENDED in ask_form.py.
+const RECOMMENDED = /\((Recommandé|Recommended)\)$/;
 const LINK = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
 function segments(text) {
   const parts = text.split(LINK), out = [];
@@ -46,7 +47,9 @@ function segments(text) {
   }
   return out;
 }
-function newState(questions) { return questions.map(() => ({selected: [], free: "", open: false})); }
+function newState(questions) {
+  return questions.map(q => ({selected: q.options.map(o => o.label).filter(l => RECOMMENDED.test(l)), free: "", open: false}));
+}
 function answered(state) { return state.selected.length > 0 || state.free.trim() !== ""; }
 function canSend(questions, states) { return questions.every((q, i) => q.required === false || answered(states[i])); }
 function toggle(question, state, label) {
@@ -72,6 +75,15 @@ function recap(questions, res, L) {
   })).join("\n");
 }
 // logic:end
+// Option colours are set inline: the host's own button styles override class rules.
+const LOOK = {
+  idle: {background: "var(--surface-2,Canvas)", border: "1px solid var(--border-stronger,GrayText)", padding: "9px 14px",
+    text: "var(--text-primary,CanvasText)", sub: "var(--text-secondary,GrayText)"},
+  hover: {border: "1px solid var(--text-secondary,CanvasText)"},
+  on: {background: "color-mix(in srgb,var(--bg-accent,Highlight) 55%,var(--surface-2,Canvas))",
+    border: "2px solid var(--fill-accent,Highlight)", padding: "8px 13px",
+    text: "var(--text-accent,HighlightText)", sub: "var(--text-accent,HighlightText)"},
+};
 (function () {
   const root = document.getElementById("af"), qs = DATA.questions, L = LABELS[DATA.lang || "fr"], st = newState(qs);
   const el = (tag, props, ...kids) => { const e = Object.assign(document.createElement(tag), props || {}); e.append(...kids); return e; };
@@ -85,12 +97,20 @@ function recap(questions, res, L) {
     const opts = el("div", {className: "opts " + (cards ? "cards" : "chips")});
     opts.setAttribute("role", "group"); opts.setAttribute("aria-label", q.title.replace(LINK, "$1"));
     const buttons = q.options.map(o => {
-      const ind = el("span", {className: "ind"}); ind.setAttribute("aria-hidden", "true");
-      const text = el("span", {}, el("span", {className: "lb", textContent: o.label}));
-      if (o.description) text.append(el("span", {className: "ds", textContent: o.description}));
-      const b = el("button", {type: "button", className: "opt"}, ind, text);
+      const lb = el("span", {className: "lb", textContent: o.label}), text = el("span", {}, lb), tinted = [];
+      if (o.description) { const ds = el("span", {className: "ds", textContent: o.description}); text.append(ds); tinted.push(ds); }
+      const b = el("button", {type: "button", className: "opt"}, text);
+      if (o.icon) { const ic = el("i", {className: "ti " + o.icon}); ic.setAttribute("aria-hidden", "true"); b.prepend(ic); tinted.push(ic); }
+      const paint = hover => {
+        const on = s.selected.includes(o.label), look = on ? LOOK.on : LOOK.idle;
+        b.setAttribute("aria-pressed", on);
+        Object.assign(b.style, {background: look.background, padding: look.padding, color: look.text,
+          border: hover && !on ? LOOK.hover.border : look.border});
+        lb.style.color = look.text; tinted.forEach(t => { t.style.color = look.sub; });
+      };
+      b.onmouseenter = () => paint(true); b.onmouseleave = () => paint(false);
       b.onclick = () => { toggle(q, s, o.label); update(); };
-      opts.append(b); return [b, ind, o.label];
+      opts.append(b); return paint;
     });
     const area = el("textarea", {placeholder: q.freeTextPlaceholder || "", id: `af-free-${i}`});
     area.oninput = () => { s.free = area.value; update(false); };
@@ -105,11 +125,7 @@ function recap(questions, res, L) {
     const hint = (q.multi ? L.multi : L.single) + ", " + L.orFree + (q.required === false ? " · " + L.optional : "");
     list.append(el("fieldset", {}, el("legend", {}, `${i + 1}. `, ...rich(q.title)),
       el("p", {className: "hint", textContent: hint}), opts, link, zone));
-    refresh.push(() => buttons.forEach(([b, ind, label]) => {
-      const on = s.selected.includes(label);
-      b.setAttribute("aria-pressed", on);
-      ind.textContent = q.multi ? (on ? "☑" : "☐") : (on ? "●" : "○");
-    }));
+    refresh.push(() => buttons.forEach(paint => paint(false)));
   });
   const count = el("span"), bar = el("progress", {max: qs.length});
   count.setAttribute("role", "status"); bar.setAttribute("aria-hidden", "true");
