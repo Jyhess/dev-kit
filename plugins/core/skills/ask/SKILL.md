@@ -1,11 +1,11 @@
 ---
 name: ask
-description: Ask the user questions with choices in one inline form — 1 to 10 questions visible together, 2 to 8 options each (single or multiple choice, optional descriptions), a free answer per question, Skip and Send — whose answers come back in one message. Use for every question to the user that has choices, alone or several at once (clarification rounds, setup questions, decisions before acting).
+description: Ask the user questions with choices in one inline form — 1 to 10 questions visible together, 2 to 8 options each (single or multiple choice, optional descriptions), a free answer per question, Skip and Send — whose answers come back in one message. Use when asking the user several questions with choices at once, or one with more than four options (clarification rounds, setup questions); a single question with up to four options goes in the agent's interactive question tool instead.
 ---
 
 # Ask questions in one form
 
-Every question to the user that has choices goes in this form, even a single one. An open question that needs a long written answer (a goal statement, an example) stays in chat text.
+Questions to the user that have choices go in this form when there are several, or one with more than four options. A single question with up to four options goes in the agent's interactive question tool (`AskUserQuestion`): simpler, and it blocks until answered. An open question that needs a long written answer (a goal statement, an example) stays in chat text.
 
 ## Build the form
 

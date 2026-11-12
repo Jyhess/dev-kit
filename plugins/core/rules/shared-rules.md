@@ -6,7 +6,7 @@ Rules shared by every project that opts in with a `## Shared rules` section in i
 
 - A question gets an answer, not an action: change files, tickets or remote state only on an explicit request; "Is it possible to…?" is a question: answer, propose, wait.
 - Before designing anything non-trivial, use the shared clarification workflow.
-- Every question with choices, alone or several at once, goes in the form of the core skill `ask` (`show_widget`), its fallbacks when that tool is missing; an open question needing a long written answer stays in text.
+- A single question with choices goes in the agent's interactive question tool (`AskUserQuestion`); several at once, or one with more than four options, in the form of the core skill `ask` (`show_widget`), its fallbacks when that tool is missing; an open question needing a long written answer stays in text.
 - A warning or notice of a skill: a quote block whose first line is the emoji and a bold title (`> ⚠️ **Warning: budget exceeded**`), then the detail.
 - An error or warning from a tool (command, hook, test, script): a heading `### 🛑 FAILURE: <tool>` or `### ⚠️ WARNING: <tool>` (non-blocking), then its raw output in a fenced code block.
 - No GitHub alert blocks (`> [!WARNING]`): the desktop app shows them as plain text.
