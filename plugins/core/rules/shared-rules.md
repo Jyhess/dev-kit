@@ -33,7 +33,7 @@ Rules shared by every project that opts in with a `## Shared rules` section in i
 ## Manual checks
 
 - The programs of a project are its `## Commands` lines labelled `Launch (gui)`, `Launch (terminal)` or `Launch (web <port>)`.
-- When a task with `[manual]` / `[manuel]` criteria or a `## Manual checks` section ends, give each launch command as a one-line bash block; in the Claude desktop app, also offer in the next-step box a "Lancer" button for the program the checks need (two at most).
+- When a task with `[manual]` / `[manuel]` criteria or a `## Manual checks` section ends, offer in the Claude desktop app's next-step box a "Lancer" button for the program the checks need (two at most), the one the task changed; give a launch command as a one-line bash block only for a `terminal` or `web` program, or outside the desktop app: a `gui` program's button is enough.
 - On a click, run it from the task's worktree: `gui` as a background command, whose output you read on failure; `terminal` in a new tab of the Terminal panel; `web` as `terminal`, then open `http://localhost:<port>` in the built-in browser.
 - No launch line: no button; offer to add one.
 
