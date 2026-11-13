@@ -136,6 +136,26 @@ class ZshConfigTest(unittest.TestCase):
         result = self.zsh(f"cd {self.home}; _devkit_fetch; echo done")
         self.assertEqual((result.stdout, result.stderr), ("done\n", ""))
 
+    # Terminal title
+
+    def test_title_names_the_project_and_the_folder(self):
+        (self.home / "Documents").mkdir()
+        shop = self.home / "dev" / "shop"
+        (shop / "ci" / "ci-runners").mkdir(parents=True)
+        self.git(shop, "init", "-q")
+        worktree = self.home / "dev" / "shop_main"
+        worktree.mkdir()
+        (worktree / ".git").write_text("gitdir: elsewhere\n", encoding="utf-8")
+        folders = [shop, shop / "ci" / "ci-runners", worktree, self.home / "Documents", self.home, "/usr"]
+        result = self.zsh("\n".join(f"cd {f}; _devkit_title" for f in folders))
+        self.assertEqual(result.stdout.splitlines(),
+                         ["shop", "shop : ci-runners", "shop_main", "~/Documents", "~", "/usr"])
+
+    def test_title_is_written_at_each_prompt(self):
+        result = self.zsh(f"cd {self.home}; _devkit_set_title; print; print -l $precmd_functions")
+        self.assertEqual(result.stdout.splitlines()[0], "\x1b]0;~\a")
+        self.assertIn("_devkit_set_title", result.stdout.splitlines())
+
 
 if __name__ == "__main__":
     unittest.main()

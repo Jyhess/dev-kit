@@ -59,14 +59,14 @@ Each project has a glossary of its domain terms (French, English for the code, d
 
 ## Terminal (macOS and Windows)
 
-`terminal/` holds the shared terminal configuration: `starship.toml`, the prompt shared by both machines (time, folder from the repository root, branch, ↓↑ or ✓, `+ ~ - ? !` counters, exit code), `zsh/dev-kit.zsh` for macOS and `powershell/dev-kit.ps1` for Windows (PowerShell 7). Both give the same Git aliases (`gr gs gl glog gp gpf grim grum`), Docker Compose aliases (`up down logs`), .NET aliases only in .NET projects (`dw db dc dt dr`) and a background `git fetch` every 5 minutes at most.
+`terminal/` holds the shared terminal configuration: `starship.toml`, the prompt shared by both machines (time, folder from the repository root, branch, ↓↑ or ✓, `+ ~ - ? !` counters, exit code), `zsh/dev-kit.zsh` for macOS and `powershell/dev-kit.ps1` for Windows (PowerShell 7). Both give the same Git aliases (`gr gs gl glog gp gpf grim grum`), Docker Compose aliases (`up down logs`), .NET aliases only in .NET projects (`dw db dc dt dr`), a background `git fetch` every 5 minutes at most, and the terminal title (`clone : folder`, else the path; Windows Terminal: `suppressApplicationTitle` off).
 
 ```bash
 python3 scripts/install_terminal.py
 ```
 
 - **macOS**: sources `dev-kit.zsh` from `~/.zshrc` once and lists the missing dependencies (oh-my-zsh, its two external plugins, starship, direnv) with the command to install each. Machine-specific lines (`PATH`, nvm, direnv hook) stay in `~/.zshrc`.
-- **Windows**: installs the missing PowerShell modules for the current user (posh-dotnet, posh-git, PSKubectlCompletion, DockerCompletion, npm-completion, WslInterop), lists starship with its winget command, and dot-sources `dev-kit.ps1` from `$PROFILE` once. `dev-kit.ps1` also keeps the PSReadLine settings, the WSL commands and the loading of a folder's `.env.ps1` on entering it. It removes PowerShell's built-in `gl` and `gp` aliases, which would hide the Git functions.
+- **Windows**: installs the missing PowerShell modules (posh-dotnet, posh-git, PSKubectlCompletion, DockerCompletion, npm-completion, WslInterop), lists starship with its winget command, and dot-sources `dev-kit.ps1` from `$PROFILE` once. `dev-kit.ps1` also keeps the PSReadLine settings, the WSL commands and the loading of a folder's `.env.ps1` on entering it.
 
 ## Development
 
