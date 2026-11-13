@@ -126,10 +126,39 @@ function Start-DevKitFetch {
     }
 }
 
+# Terminal title: the project (nearest folder upward holding a .git, folder or
+# file) and, below its root, the current folder's name; elsewhere the path,
+# with ~ for the home folder. No git process: it runs at every prompt.
+function Get-DevKitTitle {
+    $location = Get-Location
+    if ($location.Provider.Name -ne 'FileSystem') { return $location.Path }
+    $dir = $location.ProviderPath
+    $root = $dir
+    while ($root -and -not (Test-Path -LiteralPath (Join-Path $root '.git'))) {
+        $root = [IO.Path]::GetDirectoryName($root)
+    }
+    if ($root) {
+        $name = Split-Path -Leaf $root
+        if ($root -eq $dir) { return $name }
+        return "$name : $(Split-Path -Leaf $dir)"
+    }
+    $homeDir = $HOME.TrimEnd('\', '/')
+    if ($dir -eq $homeDir) { return '~' }
+    if ($dir.StartsWith("$homeDir\", [StringComparison]::OrdinalIgnoreCase)) { return '~' + $dir.Substring($homeDir.Length) }
+    $dir
+}
+
+function Update-DevKitTitle {
+    try { $Host.UI.RawUI.WindowTitle = Get-DevKitTitle } catch { }  # no console: no title
+}
+
 # Prompt shared with the Mac: terminal/starship.toml. Starship saves
 # $LASTEXITCODE before calling Invoke-Starship-PreCommand.
 if (Get-Command starship -ErrorAction SilentlyContinue) {
     $env:STARSHIP_CONFIG = Join-Path $DevKitTerminal 'starship.toml'
-    function Invoke-Starship-PreCommand { Start-DevKitFetch }
+    function Invoke-Starship-PreCommand { Update-DevKitTitle; Start-DevKitFetch }
     Invoke-Expression (& starship init powershell)
+} else {
+    $DevKitPreviousPrompt = $function:prompt
+    function prompt { Update-DevKitTitle; & $DevKitPreviousPrompt }
 }

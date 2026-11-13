@@ -28,14 +28,14 @@ class PowerShellConfigTest(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         self.tmp = Path(tmp.name).resolve()
 
-    def pwsh(self, script: str) -> subprocess.CompletedProcess:
+    def pwsh(self, script: str, **env: str) -> subprocess.CompletedProcess:
         command = f". {ps_path(CONFIG)}\n{script}"
         return subprocess.run([PWSH, "-NoProfile", "-NonInteractive", "-Command", command],
-                              env={**os.environ, **GIT_ENV}, capture_output=True, text=True,
+                              env={**os.environ, **GIT_ENV, **env}, capture_output=True, text=True,
                               encoding="utf-8", timeout=60)
 
-    def out(self, script: str) -> str:
-        result = self.pwsh(script)
+    def out(self, script: str, **env: str) -> str:
+        result = self.pwsh(script, **env)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stderr.strip(), "")
         return result.stdout.strip()
@@ -153,6 +153,28 @@ class PowerShellConfigTest(unittest.TestCase):
         self.pwsh(f"$env:GIT_SEQUENCE_EDITOR = ':'; Set-Location {ps_path(repo)}; grim")
         self.assertEqual(self.git(repo, "rev-parse", "HEAD~1"), self.git(repo, "rev-parse", "origin/main"))
         self.assertEqual((repo / "a").read_text(encoding="utf-8"), "edited")
+    # Terminal title
+
+    def test_title_names_the_project_and_the_folder(self):
+        home = self.tmp / "home"
+        (home / "Documents").mkdir(parents=True)
+        shop = self.tmp / "shop"
+        (shop / "ci" / "ci-runners").mkdir(parents=True)
+        self.git(shop, "init", "-q")
+        worktree = self.tmp / "shop_main"
+        worktree.mkdir()
+        (worktree / ".git").write_text("gitdir: elsewhere\n", encoding="utf-8")
+        outside = self.tmp / "outside"
+        outside.mkdir()
+        folders = [shop, shop / "ci" / "ci-runners", worktree, home / "Documents", home, outside]
+        out = self.out("; ".join(f"Set-Location {ps_path(f)}; Get-DevKitTitle" for f in folders),
+                       USERPROFILE=str(home))
+        self.assertEqual(out.splitlines(), ["shop", "shop : ci-runners", "shop_main", "~\\Documents", "~",
+                                            str(outside)])
+
+    def test_title_is_set_at_each_prompt(self):
+        self.assertIn("Update-DevKitTitle", self.out("${function:Invoke-Starship-PreCommand}.ToString()"))
+
 
 if __name__ == "__main__":
     unittest.main()

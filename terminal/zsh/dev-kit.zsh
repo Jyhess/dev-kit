@@ -8,6 +8,7 @@ export ZSH="${ZSH:-$HOME/.oh-my-zsh}"
 ZSH_THEME=""
 COMPLETION_WAITING_DOTS="true"
 HIST_STAMPS="mm/dd/yyyy"
+DISABLE_AUTO_TITLE="true"  # the title is set below
 plugins=(z zsh-autosuggestions zsh-syntax-highlighting)
 [[ -r "$ZSH/oh-my-zsh.sh" ]] && source "$ZSH/oh-my-zsh.sh"
 
@@ -89,3 +90,24 @@ _devkit_fetch() {
 }
 
 add-zsh-hook precmd _devkit_fetch
+
+# Terminal title: the project (nearest folder upward holding a .git, folder or
+# file) and, below its root, the current folder's name; elsewhere the path,
+# with ~ for the home folder. No git process: it runs at every prompt.
+_devkit_title() {
+  local dir="$PWD" root="$PWD"
+  while [[ ! -e "$root/.git" ]]; do
+    [[ "$root" == / ]] && { root=""; break }
+    root="${root:h}"
+  done
+  if [[ -n "$root" && "$root" == "$dir" ]]; then print -r -- "${root:t}"
+  elif [[ -n "$root" ]]; then print -r -- "${root:t} : ${dir:t}"
+  elif [[ "$dir" == "$HOME" ]]; then print -r -- "~"
+  elif [[ "$dir" == "$HOME"/* ]]; then print -r -- "~${dir#"$HOME"}"
+  else print -r -- "$dir"
+  fi
+}
+
+_devkit_set_title() { print -rn -- $'\e]0;'"$(_devkit_title)"$'\a' }
+
+add-zsh-hook precmd _devkit_set_title
