@@ -11,7 +11,7 @@ Write tickets in the language of the project's documentation, with the matching 
 
 Read them in the project's `AGENTS.md`: workspace and team (ticket prefix), what projects and milestones stand for, label groups, reference tickets for estimates, where the documentation describes each step (goal, budget, "validated if" criteria), the code repository linked to Linear, the work journal folder. When one is missing, ask the user and propose to add it to `AGENTS.md`.
 
-The Git, pull request, provisional values and known limitations rules are those of the project's `AGENTS.md`; this skill does not repeat them.
+Git, pull request, provisional values and known limitations rules: the project's `AGENTS.md`.
 
 ## Rules
 
@@ -25,6 +25,7 @@ The Git, pull request, provisional values and known limitations rules are those 
 - **Small results**: `save_issue` returns the saved ticket: do not fetch it again; give `get_issue` and `list_issues` only the `fields` the step needs (`title`, `status`, `estimate`…).
 - **States**: Backlog → Todo → In Progress → To review → Done, plus Canceled. With the GitHub integration, opening the PR moves the ticket to To review and merging it to Done.
 - **Bugs**: found while reviewing a PR, fixed in that PR; after the merge, a Bug ticket in the current step's milestone, related to the original ticket.
+- **Linear failing**: when the Linear MCP or `linear_order.py` fails, read https://linearstatus.com/ and report its incident (component, status, since), or that it shows none, with the error.
 - **Time**: tickets carry no time spent; the work journal is the only record of time, and velocity is measured in points.
 
 ## Implement a ticket
@@ -75,13 +76,13 @@ Then list the Linear changes.
 
 ## Order the tickets
 
-The Linear MCP cannot change the manual order. After a split, a replanning (tickets added, removed or reprioritised), or when the user asks, run (`<dev-kit>` is the dev-kit clone, the `root` of `~/.dev-kit/config.json` (in Claude Code, the plugin's base directory `<dev-kit>/plugins/<plugin>` works too)):
+The Linear MCP cannot change the manual order. After a split, a replanning (tickets added, removed or reprioritised), or when the user asks, run (`<dev-kit>`: the `root` of `~/.dev-kit/config.json`; in Claude Code, the plugin's base directory `<dev-kit>/plugins/<plugin>` works too):
 
 ```bash
 python3 "<dev-kit>/plugins/tracking-linear/scripts/linear_order.py" reorder <ID> <ID> [<ID> …]
 ```
 
-It puts the tickets in this order at the first one's place; the team's other tickets do not move. It sets both manual orders Linear keeps (`sortOrder`, and `prioritySortOrder` of the views by priority); `--dry-run` changes nothing. It reads the user's personal key from `LINEAR_API_KEY`; without it, it prints where to create and set it: relay that to the user, and never ask for the key nor write it in a file or a command. Tell the user which tickets moved.
+It puts the tickets in this order at the first one's place; the team's other tickets do not move. It sets both manual orders Linear keeps; `--dry-run` changes nothing. It reads the user's personal key from `LINEAR_API_KEY`; without it, it prints where to create and set it: relay that to the user, and never ask for the key nor write it in a file or a command. Tell the user which tickets moved.
 
 ## Time from the work journal
 
@@ -91,4 +92,4 @@ The journal counts one entry per hour, tagged with its project. Run:
 python3 "<dev-kit>/plugins/tracking-linear/scripts/journal_time.py" <journal folder> <project> --since <YYYY-MM-DD> [--until <YYYY-MM-DD>]
 ```
 
-The journal folder is the dev-journal clone, next to dev-kit in the dev folder; the project is the name the journal entries use (`--project` of `dev-journal`). It prints the hours per category and lists the `❓` entries without counting them: The user says whether they count, and confirms or corrects the total before it goes in the Review.
+The journal folder is the dev-journal clone, next to dev-kit; the project is the journal entries' `--project` name. It prints the hours per category and lists the `❓` entries without counting them: the user says whether they count, and confirms or corrects the total before it goes in the Review.
