@@ -701,7 +701,7 @@ class InitProjectTest(unittest.TestCase):
                 self.apply({**ANSWERS, "architecture": self.dotnet_project(package)})
                 test = self.read("Shop.Tests/ArchitectureTest.cs")
                 self.assertIn(using, test)
-                self.assertEqual(test.count(f"    {test_attribute}\n    public void"), 2)
+                self.assertEqual(test.count(f"    {test_attribute}\n    public void"), 3)
                 if class_attribute:
                     self.assertIn(f"{class_attribute}\npublic class ArchitectureTest", test)
                 else:
@@ -1006,7 +1006,7 @@ class InitProjectTest(unittest.TestCase):
         self.assertTrue(kotlin_test.startswith("package com.meteo.app\n"))
         self.assertIn("\nimport org.junit.Test\n", kotlin_test)
         self.assertIn('const val ROOT = "com.meteo.app"', kotlin_test)
-        self.assertEqual(kotlin_test.count("    @Test\n    fun "), 2)
+        self.assertEqual(kotlin_test.count("    @Test\n    fun "), 3)
         build = self.read("app/build.gradle.kts")
         self.assertIn('dependencies {\n    testImplementation("com.tngtech.archunit:archunit:1.5.1")\n'
                       '    implementation("androidx.core:core-ktx:1.18.0")\n', build)
@@ -1114,6 +1114,21 @@ class InitProjectTest(unittest.TestCase):
             (self.project / path).write_text("", encoding="utf-8")
         return {"stack": "js"}
 
+    def test_every_stack_gets_a_slow_declaration_and_the_test_rules(self):
+        for name, project, file, declaration in (
+                ("dotnet", lambda: self.dotnet_project(), "docs/architecture.puml", "\n' slow:\n"),
+                ("python", lambda: self.python_project(), ".importlinter", "\n; slow:\n"),
+                ("rust", lambda: self.rust_workspace(), "docs/architecture.puml", "<<slow>>"),
+                ("kotlin", lambda: self.kotlin_project(), "docs/architecture.puml", "\n' slow:\n"),
+                ("js", lambda: self.js_project(), "docs/architecture.json", '"slow": []')):
+            with self.subTest(stack=name):
+                self.setUp()
+                _, notes = self.apply({**ANSWERS, "architecture": project()})
+                self.assertIn(declaration, self.read(file))
+                self.assertTrue(any("slow" in n for n in notes if n.startswith("architecture, after apply")), notes)
+                self.assertIn("no test file at the root of the test folder", self.read("AGENTS.md"))
+                self.assertIn("`docs/design/tests.md`", self.read("AGENTS.md"))
+
     def test_js_project_gets_the_architecture_file_the_config_and_the_checks(self):
         changes, notes = self.apply({**ANSWERS, "architecture": self.js_project()})
         described = "\n".join(c.description for c in changes)
@@ -1122,7 +1137,7 @@ class InitProjectTest(unittest.TestCase):
         self.assertNotIn("create package.json", described)
         content = json.loads(self.read("docs/architecture.json"))
         self.assertEqual({k: v for k, v in content.items() if k != "comment"},
-                         {"stack": "js", "roots": ["src", "app"], "exclude": [], "components": {}})
+                         {"stack": "js", "roots": ["src", "app"], "exclude": [], "slow": [], "components": {}})
         self.assertTrue(any(n.startswith("architecture, after apply: npm install --save-dev dependency-cruiser; then "
                                          "python3 .github/scripts/architecture.py --write") for n in notes), notes)
         check = "python3 -m unittest && python3 .github/scripts/architecture.py"

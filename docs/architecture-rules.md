@@ -62,6 +62,18 @@ The architecture lives in one file per project, read by both the tests and the A
 
 In every stack, `.github/scripts/architecture.py` also fails when the allowed dependencies form a cycle between components: the code can only use allowed dependencies, so checking the declaration covers the code, with one implementation and one message for all stacks. The rule is on in every project; a known cycle is admitted by naming exactly its components on an `allowed cycle` line of the architecture file (`' allowed cycle: Shop.A Shop.B`, `# allowed cycle:` in `.importlinter`, `"allowed_cycles"` in `architecture.json`), and an admitted cycle that is gone fails, so the list only shrinks.
 
+The mechanical rules of `docs/design/tests.md` are checked too. The architecture file names the slow dependencies (engine, UI framework, database, network): `' slow:` namespaces or packages in the .NET and Kotlin diagrams, `; slow:` top-level modules in `.importlinter`, `"slow"` packages in `architecture.json`, `<<slow>>` external crates in the Rust diagram. A test may use a slow dependency only if its component uses it, directly or through the components it depends on. The tests mirror the components, which tells which component a test belongs to:
+
+| Stack | A test of component X | Checked by |
+|---|---|---|
+| .NET | namespace `<tests namespace>.X` (the root component: the root's last segment); none in the tests namespace itself | `ArchitectureTest.cs` |
+| Kotlin | the package of X (unit tests); a test package without production code fails | `ArchitectureTest.kt` |
+| Python | `tests/X/` (`tests/<root>/` for the root); no test file directly in `tests/` but `__init__.py` and `conftest.py` | `architecture.py` |
+| JS/TS | under the folder of X, or under `<root>/__tests__/X/`; no test file directly in a test folder at a root | `architecture.py` |
+| Rust | the crate X itself, whose `tests/` Cargo wants flat: a slow crate is a dev-dependency only of the crates that use it | `architecture.py` |
+
+Python and JS tests outside a component's folder (shared helpers) are not checked for slow dependencies.
+
 `AGENTS.md` points to that file and to the architecture tests, and says that changing either is an architecture change to be approved by the user. The AI checks a change by running the tests; it does not have to remember prose.
 
 A project test makes new components visible: the components found in the code (namespaces of `scripts/`, top-level packages, `src/` folders) must equal the components declared in the file. A new folder fails the test until it is declared, so it cannot appear silently.

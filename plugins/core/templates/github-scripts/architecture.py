@@ -83,6 +83,18 @@ Shop.A Shop.B` in the diagram header, `# allowed cycle: shop.a shop.b` at the to
 .importlinter, `"allowed_cycles": [["src/a", "src/b"]]` in docs/architecture.json. The check
 fails on a cycle not admitted, shown as a path through all its components, and on an
 admitted cycle that no longer exists.
+
+Tests (docs/design/tests.md), Python, JS/TS and Rust here, .NET and Kotlin in their
+ArchitectureTest: a test may use a slow dependency (engine, UI, database, network) only if its
+component uses it, directly or through the components it depends on. The slow ones are named
+by `# slow: pygame sqlalchemy` lines at the top of .importlinter (top-level modules), the
+`"slow"` list of docs/architecture.json (npm packages, Node built-ins) and `[bevy] <<slow>>`
+external crates in the Rust diagram (kept by `--write`). Python: a test of `tests/<child>/`
+tests that child (the root for `tests/<root>/`), one in another folder is not checked, and a
+test file directly in tests/ (but __init__.py and conftest.py) fails. JS/TS: a test tests the
+component of its path without its test folders (`src/__tests__/lib/a.test.ts` tests src/lib),
+and a test file directly in a test folder at a root fails. Rust: the crate is the component and
+its tests are its dev-dependencies; Cargo keeps integration tests flat in each crate's tests/.
 """
 
 from __future__ import annotations
@@ -118,6 +130,7 @@ CONTRACT_TYPE = "allowed"
 PY_SKIPPED = {"__pycache__"}
 RESTRICTED = "restricted"
 EXTERNAL = "external"
+SLOW_CRATE = "slow"
 DECLARATION = re.compile(r"^\s*\[([^\]]+)\]\s*(?:<<\s*(\w+)\s*>>)?\s*$")
 ARROW = re.compile(r"^\s*\[([^\]]+)\]\s*[-.]+(?:\w+[-.]+)?>\s*\[([^\]]+)\]\s*$")
 COUNTED_KINDS = {None, "build"}  # dependency kinds of cargo metadata that count: normal and build, not dev
@@ -125,10 +138,15 @@ CARGO_METADATA = ["cargo", "metadata", "--no-deps", "--format-version", "1"]
 DEPCRUISE_CONFIG = ".dependency-cruiser.cjs"
 JS_SOURCES = {".js", ".mjs", ".cjs", ".jsx", ".ts", ".mts", ".cts", ".tsx"}
 JS_SKIPPED = {"node_modules"}
+JS_TEST_FOLDERS = {"__tests__", "test", "tests"}
+JS_SLOW = "slow"
 # Test files, neither components nor checked: they may import any component (provisional).
 JS_TESTS = re.compile(r"(^|/)(__tests__|test|tests)/|\.(test|spec)\.[cm]?[jt]sx?$")
 ALLOWED_CYCLE = re.compile(r"(?m)^\s*[;'#]\s*allowed cycle:(.*)$")
 ALLOWED_CYCLES = "allowed_cycles"
+SLOW = re.compile(r"(?m)^\s*[;'#]\s*slow:(.*)$")
+PY_TESTS = "tests"
+PY_TEST_ROOT_FILES = {"__init__.py", "conftest.py"}
 
 
 class Kind(enum.Enum):
@@ -165,6 +183,8 @@ class Kind(enum.Enum):
     NO_STARTUML = "no @startuml line in the diagram"
     CYCLE = "cycle between components"
     STALE_CYCLE = "allowed cycle not found"
+    SLOW_IN_TEST = "test uses a slow dependency its component does not use"
+    TEST_AT_ROOT = "test file at the root of the test folder: move it to the folder of the component it tests"
 
 
 @dataclass(frozen=True)
@@ -502,9 +522,10 @@ def python_problems(repo: Path) -> list[Problem]:
     allowed = {config[s].get("component", "").strip(): set(config[s].get("allowed", "").split())
                for s in config.sections()
                if s.startswith(CONTRACT_SECTION) and config[s].get("type", "").strip() == CONTRACT_TYPE}
-    admitted = header_cycles((repo / IMPORTLINTER).read_text(encoding="utf-8"))
-    return found + cycle_problems({name: imports - {name} for name, imports in allowed.items()}, admitted,
-                                  IMPORTLINTER)
+    text = (repo / IMPORTLINTER).read_text(encoding="utf-8")
+    found += cycle_problems({name: imports - {name} for name, imports in allowed.items()}, header_cycles(text),
+                            IMPORTLINTER)
+    return found + python_test_problems(repo, roots, packages, in_code, header_slow(text))
 
 
 def components(repo: Path, packages: dict[str, Path]) -> dict[str, Path]:
@@ -537,24 +558,81 @@ def imported_modules(path: Path, module: str, is_package: bool) -> set[str]:
     return found
 
 
-def dependencies(repo: Path, roots: list[str]) -> dict[str, set[str]]:
-    """For each component of the root packages, the other components it imports."""
-    packages = {root: package_dir(repo, root) for root in roots}
-    in_code = components(repo, packages)
+def imported_component(module: str, roots: Iterable[str], in_code: Iterable[str]) -> str | None:
+    """The component a module of a root package belongs to, as grimp counts an import of it: `from shop import X`, X
+    not a sub-module, imports the root's __init__."""
+    if (c := module_component(module, roots)) is None:
+        return None
+    return c if c in in_code else c.split(".")[0]
+
+
+def file_module(file: Path, base: Path) -> tuple[str, bool]:
+    """The module name of a file under base, and whether it is a package's __init__."""
+    parts = file.relative_to(base).with_suffix("").parts
+    is_package = parts[-1] == "__init__"
+    return ".".join(parts[:-1] if is_package else parts), is_package
+
+
+def imports_by_component(packages: dict[str, Path], in_code: dict[str, Path]) -> dict[str, set[str]]:
+    """For each component of the root packages, every module its files import."""
     found: dict[str, set[str]] = {}
     for component, path in in_code.items():
         base = packages[component.split(".")[0]].parent
         files = sorted(path.rglob("*.py")) if path.is_dir() else [path]
-        imported: set[str] = set()
-        for file in files:
-            parts = file.relative_to(base).with_suffix("").parts
-            is_package = parts[-1] == "__init__"
-            module = ".".join(parts[:-1] if is_package else parts)
-            for m in imported_modules(file, module, is_package):
-                if (c := module_component(m, roots)) is not None:
-                    # `from shop import X`, X not a sub-module: an import of the root's __init__, as grimp counts it.
-                    imported.add(c if c in in_code else c.split(".")[0])
-        found[component] = imported - {component}
+        found[component] = {m for file in files for m in imported_modules(file, *file_module(file, base))}
+    return found
+
+
+def dependencies(repo: Path, roots: list[str]) -> dict[str, set[str]]:
+    """For each component of the root packages, the other components it imports."""
+    packages = {root: package_dir(repo, root) for root in roots}
+    in_code = components(repo, packages)
+    return {component: {c for m in imported if (c := imported_component(m, roots, in_code))} - {component}
+            for component, imported in imports_by_component(packages, in_code).items()}
+
+
+def header_slow(text: str) -> set[str]:
+    """The slow dependencies named by the `slow:` comment lines of an architecture file."""
+    return {name for line in SLOW.findall(text) for name in line.split()}
+
+
+def slow_reached(direct: dict[str, set[str]], edges: dict[str, set[str]]) -> dict[str, set[str]]:
+    """For each component, the slow dependencies it uses itself or through the components it reaches."""
+    return {c: direct.get(c, set()).union(*(direct.get(r, set()) for r in reachable(edges, c))) for c in direct}
+
+
+def python_test_problems(repo: Path, roots: list[str], packages: dict[str, Path], in_code: dict[str, Path],
+                         slow: set[str]) -> list[Problem]:
+    """A test file directly in tests/, and a test of tests/<child>/ using a slow dependency its component does not
+    use, itself or through the components it imports."""
+    tests = repo / PY_TESTS
+    if not tests.is_dir():
+        return []
+    found = [Problem(Kind.TEST_AT_ROOT, "", f"{PY_TESTS}/{f.name}") for f in sorted(tests.glob("*.py"))
+             if f.name not in PY_TEST_ROOT_FILES]
+    if not slow:
+        return found
+    imports = imports_by_component(packages, in_code)
+
+    def used(imported: Iterable[str]) -> tuple[set[str], set[str]]:
+        """The slow dependencies imported directly, and the components imported."""
+        return ({m.split(".")[0] for m in imported} & slow,
+                {c for m in imported if (c := imported_component(m, roots, in_code))})
+
+    direct, edges = {}, {}
+    for component, imported in imports.items():
+        direct[component], edges[component] = used(imported)
+    reach = slow_reached(direct, edges)
+    for folder in sorted(f for f in tests.iterdir() if f.is_dir()):
+        tested = [c for c in in_code if c == folder.name or c.partition(".")[2] == folder.name]
+        if not tested:
+            continue
+        allowed = set().union(*(reach[c] for c in tested))
+        for file in sorted(folder.rglob("*.py")):
+            slow_used, imported = used(imported_modules(file, *file_module(file, repo)))
+            slow_used = slow_used.union(*(reach.get(c, set()) for c in imported))
+            found += [Problem(Kind.SLOW_IN_TEST, f"{' '.join(tested)} -> {name}", file.relative_to(repo).as_posix())
+                      for name in sorted(slow_used - allowed)]
     return found
 
 
@@ -682,6 +760,8 @@ class Crate:
     manifest: str  # Cargo.toml, relative to the workspace root
     crates: frozenset[str]  # workspace crates it depends on
     externals: tuple[str, ...]  # other crates it depends on, in manifest order
+    dev_crates: frozenset[str] = frozenset()  # workspace crates its tests depend on (dev-dependencies)
+    dev_externals: frozenset[str] = frozenset()  # other crates its tests depend on
 
 
 @dataclass(frozen=True)
@@ -718,10 +798,13 @@ def workspace_crates(metadata: dict, excluded: set[str]) -> dict[str, Crate]:
         if package["name"] in excluded:
             continue
         counted = [d["name"] for d in package["dependencies"] if d["kind"] in COUNTED_KINDS]
+        dev = [d["name"] for d in package["dependencies"] if d["kind"] not in COUNTED_KINDS]
         found[package["name"]] = Crate(
             manifest=Path(package["manifest_path"]).relative_to(root).as_posix(),
             crates=frozenset(d for d in counted if d in names and d not in excluded and d != package["name"]),
-            externals=tuple(dict.fromkeys(d for d in counted if d not in names)))
+            externals=tuple(dict.fromkeys(d for d in counted if d not in names)),
+            dev_crates=frozenset(d for d in dev if d in names and d not in excluded and d != package["name"]),
+            dev_externals=frozenset(d for d in dev if d not in names))
     return found
 
 
@@ -759,7 +842,7 @@ def rust_problems(repo: Path, metadata: dict | ToolFailure | None = None) -> lis
     if isinstance(workspace, Problem):
         return [workspace]
     components, crates = workspace.diagram.components, workspace.crates
-    declared = {name for name, stereotype in components.items() if stereotype != EXTERNAL}
+    declared = {name for name, stereotype in components.items() if stereotype not in (EXTERNAL, SLOW_CRATE)}
     allowed = set(workspace.diagram.arrows)
     found = [Problem(Kind.UNDECLARED_CRATE, name, crate.manifest) for name, crate in crates.items()
              if name not in declared]
@@ -772,7 +855,19 @@ def rust_problems(repo: Path, metadata: dict | ToolFailure | None = None) -> lis
                       for dep in crate.externals if (name, dep) not in allowed]
     found += [Problem(Kind.UNKNOWN_ARROW, f"{source} -> {target}", DIAGRAM)
               for source, target in workspace.diagram.arrows if source not in components or target not in components]
-    return found + cycle_problems(arrow_edges(workspace.diagram.arrows), header_cycles(workspace.text), DIAGRAM)
+    found += cycle_problems(arrow_edges(workspace.diagram.arrows), header_cycles(workspace.text), DIAGRAM)
+    return found + rust_test_problems(crates, {name for name, s in components.items() if s == SLOW_CRATE})
+
+
+def rust_test_problems(crates: dict[str, Crate], slow: set[str]) -> list[Problem]:
+    """A crate whose tests (dev-dependencies) use a slow crate it does not use, itself or through its crates."""
+    reach = slow_reached({name: set(crate.externals) & slow for name, crate in crates.items()},
+                         {name: set(crate.crates) for name, crate in crates.items()})
+    found = []
+    for name, crate in crates.items():
+        used = (crate.dev_externals & slow).union(*(reach.get(c, set()) for c in crate.dev_crates))
+        found += [Problem(Kind.SLOW_IN_TEST, f"{name} -> {dep}", crate.manifest) for dep in sorted(used - reach[name])]
+    return found
 
 
 def write_diagram(repo: Path, metadata: dict | ToolFailure | None = None) -> list[Problem]:
@@ -783,11 +878,13 @@ def write_diagram(repo: Path, metadata: dict | ToolFailure | None = None) -> lis
     diagram, crates = workspace.diagram, workspace.crates
     restricted = [name for name in crates if diagram.components.get(name) == RESTRICTED]
     externals = sorted({dep for name in restricted for dep in crates[name].externals})
+    slow = sorted(name for name, stereotype in diagram.components.items() if stereotype == SLOW_CRATE)
     arrows = sorted([(name, dep) for name, crate in crates.items() for dep in crate.crates]
                     + [(name, dep) for name in restricted for dep in crates[name].externals])
     body = (list(diagram.other)
             + [f"[{name}] <<{RESTRICTED}>>" if name in restricted else f"[{name}]" for name in crates]
-            + [f"[{name}] <<{EXTERNAL}>>" for name in externals]
+            + [f"[{name}] <<{SLOW_CRATE if name in slow else EXTERNAL}>>" for name in externals]
+            + [f"[{name}] <<{SLOW_CRATE}>>" for name in slow if name not in externals]
             + [f"[{source}] --> [{target}]" for source, target in arrows])
     (repo / DIAGRAM).write_text(diagram.header + "@startuml\n" + "".join(line + "\n" for line in body)
                                 + "@enduml\n", encoding="utf-8", newline="\n")
@@ -803,6 +900,7 @@ class JsArchitecture:
     exclude: tuple[str, ...]  # folder prefixes, ending with /
     components: dict[str, tuple[str, ...]]  # component -> components it may import
     allowed_cycles: tuple[tuple[str, ...], ...]  # the cycles admitted, each by its components
+    slow: frozenset[str] = frozenset()  # the slow packages (npm names, Node built-ins)
 
 
 def read_js(repo: Path) -> JsArchitecture | Problem:
@@ -818,40 +916,110 @@ def read_js(repo: Path) -> JsArchitecture | Problem:
         if not all(isinstance(names, list) and all(isinstance(n, str) for n in names)
                    for names in content.get(ALLOWED_CYCLES, ())):
             raise TypeError(f"`{ALLOWED_CYCLES}`: a list of lists of component names expected")
+        slow = content.get(JS_SLOW, [])
+        if not isinstance(slow, list) or not all(isinstance(name, str) for name in slow):
+            raise TypeError(f"`{JS_SLOW}`: a list of package names expected")
     except (ValueError, AttributeError, TypeError) as error:
         return Problem(Kind.INVALID_FILE, str(error), ARCHITECTURE_JSON)
     if not roots:
         return Problem(Kind.NO_ROOTS, "", ARCHITECTURE_JSON)
-    return JsArchitecture(content, roots, exclude, components, allowed_cycles)
+    return JsArchitecture(content, roots, exclude, components, allowed_cycles, frozenset(slow))
 
 
-def js_component(path: str, architecture: JsArchitecture) -> str | None:
-    """The component of a source file (relative, with /); None outside the roots, excluded, or not a component."""
+def js_root(path: str, architecture: JsArchitecture) -> tuple[str, list[str]] | None:
+    """The root of a source or test file (relative, with /) and the parts of its path under it; None outside the
+    roots or excluded."""
     parts = path.split("/")
-    if (Path(path).suffix not in JS_SOURCES or JS_TESTS.search(path)
-            or any(p.startswith(".") or p in JS_SKIPPED for p in parts)
+    if (Path(path).suffix not in JS_SOURCES or any(p.startswith(".") or p in JS_SKIPPED for p in parts)
             or any(path.startswith(prefix) for prefix in architecture.exclude)):
         return None
     for root in sorted(architecture.roots, key=len, reverse=True):
         prefix = "" if root == "." else root + "/"
         if path.startswith(prefix):
-            rest = path[len(prefix):].split("/")
-            return prefix + rest[0] if len(rest) > 1 else root
+            return root, path[len(prefix):].split("/")
     return None
 
 
-def js_sources(repo: Path, architecture: JsArchitecture) -> dict[str, str]:
-    """Each source file of a component (relative, with /) -> its component."""
+def component_at(root: str, rest: list[str]) -> str:
+    """The component of a file at `rest` under a root: the folder right under the root, or the root itself."""
+    return ("" if root == "." else root + "/") + rest[0] if len(rest) > 1 else root
+
+
+def js_component(path: str, architecture: JsArchitecture) -> str | None:
+    """The component of a source file (relative, with /); None outside the roots, excluded, or a test file."""
+    found = None if JS_TESTS.search(path) else js_root(path, architecture)
+    return component_at(*found) if found else None
+
+
+def js_test_component(path: str, architecture: JsArchitecture) -> str | None:
+    """The component a test file tests: the component of its path without its test folders (src/__tests__/orders/
+    and src/orders/__tests__/ test src/orders); None for a source file, outside the roots or excluded."""
+    found = js_root(path, architecture) if JS_TESTS.search(path) else None
+    return component_at(found[0], [p for p in found[1] if p not in JS_TEST_FOLDERS]) if found else None
+
+
+def js_test_at_root(path: str, architecture: JsArchitecture) -> bool:
+    """A test file directly in a test folder at a root: src/__tests__/x.test.ts, or tests/x.test.ts for the root `.`."""
+    found = js_root(path, architecture) if JS_TESTS.search(path) else None
+    return found is not None and len(found[1]) == 2 and found[1][0] in JS_TEST_FOLDERS
+
+
+def js_package(target: str) -> str | None:
+    """The package of a file dependency-cruiser resolved: its npm name (react, @scope/name) in node_modules, or the
+    Node built-in (fs for node:fs); None for a file of the project."""
+    if "node_modules/" in target:
+        parts = target.rsplit("node_modules/", 1)[1].split("/")
+        return "/".join(parts[:2]) if parts[0].startswith("@") else parts[0]
+    if "/" not in target and Path(target).suffix not in JS_SOURCES:
+        return target.removeprefix("node:")
+    return None
+
+
+def js_files(repo: Path, architecture: JsArchitecture,
+             component: Callable[[str, JsArchitecture], str | None]) -> dict[str, str]:
+    """Each file under the roots (relative, with /) to which `component` gives a component -> that component."""
     found: dict[str, str] = {}
     for root in architecture.roots:
         for folder, dirs, files in os.walk(repo / root):
             dirs[:] = sorted(d for d in dirs if not d.startswith(".") and d not in JS_SKIPPED)
             for name in sorted(files):
                 relative = (Path(folder) / name).relative_to(repo).as_posix()
-                component = js_component(relative, architecture)
-                if component is not None:
-                    found[relative] = component
+                if (found_component := component(relative, architecture)) is not None:
+                    found[relative] = found_component
     return dict(sorted(found.items()))
+
+
+def js_sources(repo: Path, architecture: JsArchitecture) -> dict[str, str]:
+    """Each source file of a component (relative, with /) -> its component."""
+    return js_files(repo, architecture, js_component)
+
+
+def js_test_problems(repo: Path, architecture: JsArchitecture, sources: dict[str, str],
+                     cruise: Cruise) -> list[Problem]:
+    """A test file directly in a test folder at a root, and a test file using a slow package its component does not
+    use, itself or through the components it imports."""
+    tests = js_files(repo, architecture, js_test_component)
+    found = [Problem(Kind.TEST_AT_ROOT, "", path) for path in tests if js_test_at_root(path, architecture)]
+    if not architecture.slow:
+        return found
+    direct: dict[str, set[str]] = {c: set() for c in sources.values()}
+    edges: dict[str, set[str]] = {c: set() for c in direct}
+    slow_imports: dict[str, set[str]] = {path: set() for path in tests}
+    component_imports_of: dict[str, set[str]] = {path: set() for path in tests}
+    for source, target in cruise.imports:
+        package, imported = js_package(target), js_component(target, architecture)
+        if source in tests:
+            slow_imports[source].update({package} & architecture.slow)
+            component_imports_of[source].update({imported} & direct.keys())
+        elif (component := sources.get(source)) is not None:
+            direct[component].update({package} & architecture.slow)
+            edges[component].update(({imported} & direct.keys()) - {component})
+    reach = slow_reached(direct, edges)
+    for path, component in tests.items():
+        used = slow_imports[path].union(*(reach[c] for c in component_imports_of[path]))
+        found += [Problem(Kind.SLOW_IN_TEST, f"{component} -> {name}", path)
+                  for name in sorted(used - reach.get(component, set()))]
+    return found
 
 
 def js_components_in_code(sources: dict[str, str]) -> dict[str, str]:
@@ -929,7 +1097,7 @@ def js_problems(repo: Path, cruise: Cruise | ToolFailure | None = None) -> list[
               for source, target, source_component, target_component in component_imports(cruise, architecture)
               if source_component in declared and target_component in declared
               and target_component not in declared[source_component]]
-    return found
+    return found + js_test_problems(repo, architecture, sources, cruise)
 
 
 def write_js(repo: Path, cruise: Cruise | ToolFailure | None = None) -> list[Problem]:
