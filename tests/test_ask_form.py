@@ -154,6 +154,18 @@ const rec = [
 const rst = newState(rec);
 assert.deepStrictEqual(rst.map(s => s.selected), [["B (Recommandé)"], ["A (Recommended)", "C (Recommandé)"], []]);
 assert.deepStrictEqual(rst.map(answered), [true, true, false]);
+toggleOther(rec[0], rst[0]);
+assert.deepStrictEqual([rst[0].open, rst[0].selected], [true, []]);
+rst[0].free = "Autre";
+toggle(rec[0], rst[0], "A");
+assert.deepStrictEqual([rst[0].open, rst[0].free, rst[0].selected], [false, "", ["A"]]);
+toggleOther(rec[1], rst[1]);
+assert.deepStrictEqual([rst[1].open, rst[1].selected], [true, ["A (Recommended)", "C (Recommandé)"]]);
+rst[1].free = "Autre";
+toggle(rec[1], rst[1], "B");
+assert.deepStrictEqual([rst[1].open, rst[1].free], [true, "Autre"]);
+toggleOther(rec[1], rst[1]);
+assert.deepStrictEqual([rst[1].open, rst[1].free], [false, ""]);
 """
 
 
