@@ -27,7 +27,7 @@ Audience: the user (Jyhess), and readers of their methods. Stack: Python 3 scrip
 
 ## Design
 
-- Before designing or changing code, read `docs/design/principles.md` (errors, robustness by design); the generated projects get a copy of `plugins/core/templates/design/`.
+- Before designing or changing code, read `docs/design/principles.md` (errors, robustness by design, tests and slow dependencies); the generated projects get a copy of `plugins/core/templates/design/`.
 
 ## Layout
 

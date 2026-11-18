@@ -32,12 +32,12 @@ Implementation:
 - Given …, when …, then …
 - [manual] …
 ## Technical acceptance criteria
-- End-to-end tests for each automatable business criterion.
+- A test for each automatable business criterion, in the lowest layer that can check it (`docs/design/tests.md`).
 ## Out of scope
 ## Implementation notes
 ```
 
-Bug: `## Steps to reproduce`, `## Observed behaviour`, `## Expected behaviour`, `## Fixed when` (an end-to-end test reproduces the bug, then passes after the fix).
+Bug: `## Steps to reproduce`, `## Observed behaviour`, `## Expected behaviour`, `## Fixed when` (a test in the lowest layer that can reproduce the bug fails, then passes after the fix).
 Investigation: `## Question`, `## Leads`, `## Time box` (a duration), `## Deliverable`.
 Task: `## Context`, `## To do` (checkboxes), `## Done when`.
 
@@ -45,8 +45,8 @@ Task: `## Context`, `## To do` (checkboxes), `## Done when`.
 
 1. Read the issue (`gh issue view <n> --comments`). Check the Definition of Ready. If a criterion is ambiguous, ask before coding (the shared `clarify` skill for anything substantial).
 2. Name the branch `<n>-<short-slug>`, unless the project's `AGENTS.md` says to commit on the default branch.
-3. Develop test-first: each automatable business criterion becomes a test written before the code. Respect the technical criteria and the out of scope. An architecture change the issue does not list as approved stops the work: submit it to the user first. Prove each regression test by seeing it fail with the defect it targets reintroduced.
-4. Rebase, then run the project's verification: every automatable criterion passes.
+3. Develop test-first: each automatable business criterion becomes a test, written first, in the lowest layer that can check it. Respect the technical criteria and the out of scope. An architecture change the issue does not list as approved stops the work: submit it to the user first. Prove each regression test by seeing it fail with the defect it targets reintroduced.
+4. Review the tests the issue touches against `docs/design/tests.md`. Rebase, then run the project's verification: every automatable criterion passes.
 5. Open the draft PR. Title = the issue's title; body = the repository's PR template (`.github/pull_request_template.md`) filled in, with `Fixes #<n>` and only the optional sections that apply (among them the architecture changes approved in the issue); the `PR description` check turns red on a missing or empty section: check it first with `python3 .github/scripts/pr_description.py <body file>`. On the default branch, put `Refs #<n>` in the commit message instead, and `Fixes #<n>` only when every criterion is met.
 6. Ask the user about each provisional value and known limitation, as `AGENTS.md` says; their tickets are issues.
 7. Comment on the issue with what was noticed out of scope, and propose a new issue for it instead of doing it.
