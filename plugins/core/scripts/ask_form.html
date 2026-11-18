@@ -57,6 +57,13 @@ function toggle(question, state, label) {
   const chosen = question.multi ? (on ? state.selected.filter(l => l !== label) : state.selected.concat(label))
     : (on ? [] : [label]);
   state.selected = question.options.map(o => o.label).filter(l => chosen.includes(l));
+  if (!question.multi && !on) { state.open = false; state.free = ""; }
+}
+// A single choice holds one answer: opening the free answer clears the chosen option, choosing an option closes it.
+function toggleOther(question, state) {
+  state.open = !state.open;
+  if (!state.open) state.free = "";
+  else if (!question.multi) state.selected = [];
 }
 function result(questions, states, status) {
   return {status, answers: questions.map((q, i) => {
@@ -116,16 +123,15 @@ const LOOK = {
     area.oninput = () => { s.free = area.value; update(false); };
     const zone = el("label", {hidden: true}, L.free, area);
     const link = el("button", {type: "button", className: "link", textContent: L.other});
-    link.onclick = () => {
-      s.open = !s.open; if (!s.open) { s.free = ""; area.value = ""; }
+    const paintOther = () => {
+      if (!s.open) area.value = "";
       zone.hidden = !s.open; link.textContent = s.open ? L.removeOther : L.other; link.setAttribute("aria-expanded", s.open);
-      if (s.open) area.focus(); update();
     };
-    link.setAttribute("aria-expanded", "false");
+    link.onclick = () => { toggleOther(q, s); update(); if (s.open) area.focus(); };
     const hint = (q.multi ? L.multi : L.single) + ", " + L.orFree + (q.required === false ? " · " + L.optional : "");
     list.append(el("fieldset", {}, el("legend", {}, `${i + 1}. `, ...rich(q.title)),
       el("p", {className: "hint", textContent: hint}), opts, link, zone));
-    refresh.push(() => buttons.forEach(paint => paint(false)));
+    refresh.push(() => { buttons.forEach(paint => paint(false)); paintOther(); });
   });
   const count = el("span"), bar = el("progress", {max: qs.length});
   count.setAttribute("role", "status"); bar.setAttribute("aria-hidden", "true");
