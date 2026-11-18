@@ -502,6 +502,53 @@ class PythonTest(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("import-linter is not installed", result.stdout)
 
+    def slow_shop(self, slow="; slow: pygame sqlalchemy\n"):
+        """shop with shop.pure (no import) and shop.ui (pygame); .importlinter names the slow dependencies."""
+        self.shop()
+        self.write("src/shop/pure.py", "def total():\n    return 1\n")
+        self.write("src/shop/ui.py", "import pygame.display\n")
+        self.contracts("shop", "shop.orders", "shop.billing", "shop.util", "shop.pure", "shop.ui")
+        file = self.repo / ".importlinter"
+        file.write_text(slow + file.read_text(encoding="utf-8"), encoding="utf-8")
+
+    def test_tests_using_only_the_slow_dependencies_of_their_component_pass(self):
+        self.slow_shop()
+        self.write("tests/__init__.py")
+        self.write("tests/conftest.py", "import pygame\n")
+        self.write("tests/ui/test_ui.py", "import pygame\nfrom shop import ui\n")
+        self.write("tests/pure/test_pure.py", "from shop.pure import total\nimport json\n")
+        self.write("tests/support/screen.py", "import pygame\n")
+        self.assertEqual(architecture.problems(self.repo), [])
+
+    def test_test_of_a_component_using_a_slow_dependency_it_does_not_use_fails(self):
+        self.slow_shop()
+        self.write("tests/pure/test_pure.py", "import pygame\nfrom sqlalchemy.orm import Session\n")
+        self.write("tests/pure/deep/test_ui.py", "from shop.ui import draw\n")
+        self.assertEqual(architecture.problems(self.repo),
+                         [Problem(Kind.SLOW_IN_TEST, "shop.pure -> pygame", "tests/pure/deep/test_ui.py"),
+                          Problem(Kind.SLOW_IN_TEST, "shop.pure -> pygame", "tests/pure/test_pure.py"),
+                          Problem(Kind.SLOW_IN_TEST, "shop.pure -> sqlalchemy", "tests/pure/test_pure.py")])
+
+    def test_component_reaching_a_slow_dependency_through_another_may_use_it_in_its_tests(self):
+        self.slow_shop()
+        self.write("src/shop/util.py", "from shop import ui\n")
+        self.write("tests/billing/test_invoice.py", "import pygame\n")
+        self.write("tests/shop/test_version.py", "import pygame\n")
+        self.assertEqual(architecture.problems(self.repo), [])
+
+    def test_without_slow_line_tests_may_use_anything(self):
+        self.slow_shop(slow="")
+        self.write("tests/pure/test_pure.py", "import pygame\n")
+        self.assertEqual(architecture.problems(self.repo), [])
+
+    def test_test_file_at_the_root_of_tests_fails(self):
+        self.slow_shop(slow="")
+        self.write("tests/__init__.py")
+        self.write("tests/conftest.py")
+        self.write("tests/test_flat.py")
+        self.write("tests/notes.txt")
+        self.assertEqual(architecture.problems(self.repo), [Problem(Kind.TEST_AT_ROOT, "", "tests/test_flat.py")])
+
 
 RS_HEADER = "' stack: rust\n' exclude: xtask\n"
 HAS_CARGO = shutil.which("cargo") is not None
@@ -593,6 +640,27 @@ class RustTest(unittest.TestCase):
         self.assertEqual((self.repo / "ws" / "docs" / "architecture.puml").read_text(encoding="utf-8"), RS_HEADER + (
             "@startuml\nskinparam componentStyle rectangle\n"
             "[app]\n[domain] <<restricted>>\n[glam] <<external>>\n"
+            "[app] --> [domain]\n[domain] --> [glam]\n@enduml\n"))
+        self.assertEqual(self.problems(), [])
+
+    def test_tests_of_a_crate_may_use_only_the_slow_crates_it_uses(self):
+        self.crates["app"].append(("eframe", DEV))
+        self.crates["domain"] += [("eframe", DEV), ("app", DEV)]
+        self.allowed("[eframe] <<slow>>")
+        self.assertEqual(self.problems(),
+                         [Problem(Kind.SLOW_IN_TEST, "domain -> eframe", "crates/domain/Cargo.toml")])
+
+    def test_slow_crate_reached_through_a_dev_dependency_on_a_workspace_crate_fails(self):
+        self.crates["domain"].append(("app", DEV))
+        self.allowed("[eframe] <<slow>>")
+        self.assertEqual(self.problems(),
+                         [Problem(Kind.SLOW_IN_TEST, "domain -> eframe", "crates/domain/Cargo.toml")])
+
+    def test_write_keeps_the_slow_crates(self):
+        self.diagram("[domain] <<restricted>>", "[eframe] <<slow>>", "[glam] <<slow>>")
+        self.assertEqual(architecture.write_diagram(self.repo / "ws", self.metadata()), [])
+        self.assertEqual((self.repo / "ws" / "docs" / "architecture.puml").read_text(encoding="utf-8"), RS_HEADER + (
+            "@startuml\n[app]\n[domain] <<restricted>>\n[glam] <<slow>>\n[eframe] <<slow>>\n"
             "[app] --> [domain]\n[domain] --> [glam]\n@enduml\n"))
         self.assertEqual(self.problems(), [])
 
@@ -689,23 +757,63 @@ class JsTest(unittest.TestCase):
 
     def test_tests_node_modules_hidden_excluded_and_other_files_are_not_components(self):
         self.declare(exclude=["src/legacy/"])
-        for path in ("src/__tests__/timer.ts", "src/test/helpers.js", "src/hooks/useTimer.test.tsx",
+        for path in ("src/__tests__/hooks/timer.ts", "src/test/lib/helpers.js", "src/hooks/useTimer.test.tsx",
                      "src/lib/clock.spec.mjs", "src/node_modules/pkg/index.js", "src/.cache/a.js",
                      "src/legacy/old.js", "src/locales/fr.json"):
             self.write(path, "")
-        self.imports += [("src/__tests__/timer.ts", "src/lib/clock.ts"), ("src/legacy/old.js", "src/hooks/useTimer.ts"),
+        self.imports += [("src/__tests__/hooks/timer.ts", "src/lib/clock.ts"), ("src/legacy/old.js", "src/hooks/useTimer.ts"),
                          ("src/lib/clock.ts", "src/legacy/old.js")]
         self.assertEqual(self.problems(), [])
 
     def test_repository_root_holds_the_top_folders_and_its_own_files(self):
         self.write("options/options.js", "")
-        self.write("test/parser.test.js", "")
+        self.write("test/options/parser.test.js", "")
         self.write("babel.config.js", "")
         self.write(".dependency-cruiser.cjs", "")
         self.declare({".": [], "options": [], "src": []}, roots=["."])
         self.imports = [("options/options.js", "src/lib/clock.ts")]
         self.assertEqual(self.problems(), [Problem(Kind.IMPORT_NOT_ALLOWED, "options -> src (src/lib/clock.ts)",
                                                    "options/options.js")])
+
+    def declare_slow(self, slow):
+        self.declare()
+        file = self.repo / "docs/architecture.json"
+        file.write_text(json.dumps({**json.loads(file.read_text(encoding="utf-8")), "slow": slow}), encoding="utf-8")
+
+    def test_tests_using_only_the_slow_packages_of_their_component_pass(self):
+        self.declare_slow(["react", "fs"])
+        tests = {"src/hooks/useTimer.test.tsx": "node_modules/react/index.js",
+                 "src/__tests__/lib/clock.test.ts": "fs", "src/index.test.ts": "node_modules/react/index.js",
+                 "src/lib/clock.spec.ts": "src/lib/clock.ts"}
+        for path, target in tests.items():
+            self.write(path, "")
+            self.imports.append((path, target))
+        self.assertEqual(self.problems(), [])
+
+    def test_test_of_a_component_using_a_slow_package_it_does_not_use_fails(self):
+        self.declare_slow(["react", "@prisma/client"])
+        tests = {"src/lib/__tests__/clock.test.ts": "node_modules/react/cjs/react.js",
+                 "src/__tests__/lib/db.test.ts": "node_modules/@prisma/client/index.js",
+                 "src/lib/clock.test.ts": "src/hooks/useTimer.ts"}
+        for path, target in tests.items():
+            self.write(path, "")
+            self.imports.append((path, target))
+        self.assertEqual(self.problems(), [
+            Problem(Kind.SLOW_IN_TEST, "src/lib -> @prisma/client", "src/__tests__/lib/db.test.ts"),
+            Problem(Kind.SLOW_IN_TEST, "src/lib -> react", "src/lib/__tests__/clock.test.ts"),
+            Problem(Kind.SLOW_IN_TEST, "src/lib -> react", "src/lib/clock.test.ts")])
+
+    def test_test_file_directly_in_a_test_folder_at_a_root_fails(self):
+        self.declare()
+        for path in ("src/__tests__/flat.test.ts", "src/test/helpers.js", "src/index.test.ts",
+                     "src/hooks/__tests__/useTimer.test.ts"):
+            self.write(path, "")
+        self.assertEqual(self.problems(), [Problem(Kind.TEST_AT_ROOT, "", "src/__tests__/flat.test.ts"),
+                                           Problem(Kind.TEST_AT_ROOT, "", "src/test/helpers.js")])
+
+    def test_slow_must_be_a_list_of_names(self):
+        self.declare_slow("react")
+        self.assertEqual([p.kind for p in self.problems()], [Kind.INVALID_FILE])
 
     def test_missing_unreadable_or_rootless_file_is_reported(self):
         self.assertEqual(self.problems(), [Problem(Kind.NO_DIAGRAM, "", "docs/architecture.json")])
@@ -749,7 +857,7 @@ class JsTest(unittest.TestCase):
         self.write("src/hooks/useTimer.js", "import { now } from '../lib/clock.js';\nexport const t = now;\n")
         self.write("src/lib/clock.js", "export const now = 1;\n")
         self.write("src/index.js", "import { t } from './hooks/useTimer.js';\n")
-        self.write("src/__tests__/clock.test.js", "import { t } from '../hooks/useTimer.js';\n")
+        self.write("src/__tests__/hooks/useTimer.test.js", "import { t } from '../../hooks/useTimer.js';\n")
         shutil.copy(SCRIPT.parents[1] / "dependency-cruiser.cjs", self.repo / ".dependency-cruiser.cjs")
         self.declare({})
         run = lambda *args: subprocess.run([sys.executable, str(SCRIPT), *args, str(self.repo)],

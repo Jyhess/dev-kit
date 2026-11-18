@@ -158,6 +158,10 @@ INSTRUCTIONS = {
         "js": ("- Components (each folder right under a root) and those each may import: `docs/architecture.json`, "
                "checked with dependency-cruiser by `{check}`; `{check} --write` rewrites it from the code."),
     },
+    "architecture_tests": ("- The tests mirror the components, no test file at the root of the test folder, and use only "
+                           "the slow dependencies (engine, UI, database, network) their component uses: the `slow` "
+                           "ones of the architecture file. The architecture checks fail otherwise; see "
+                           "`docs/design/tests.md`."),
     "architecture_cycles": ("- The allowed dependencies form no cycle between components: `.github/scripts/architecture.py` "
                             "fails on one that its architecture file does not admit as an `allowed cycle`."),
 }
@@ -222,7 +226,8 @@ def instruction_values(answers: dict) -> dict[str, str]:
         principles=f"{PRINCIPLES_FOLDER}/{PRINCIPLES_PAGES[0]}",
         architecture=p["architecture"][stack_name(architecture)].format(**vars(architecture), check=architecture.check,
                                                           packages=getattr(architecture, "packages", ""))
-        + "\n" + p["architecture_cycles"] if (architecture := answers.get("architecture")) else "",
+        + "\n" + p["architecture_cycles"] + "\n" + p["architecture_tests"]
+        if (architecture := answers.get("architecture")) else "",
     )
 
 
@@ -975,12 +980,20 @@ def after_apply(steps: list[str]) -> str:
     return "architecture, after apply: " + "; then ".join(steps)
 
 
+SLOW_LINE = "' slow:"
+SLOW_STEP = ("list with the user the slow dependencies (engine, UI framework, database, network) on the `slow` line "
+             "of the architecture file")
+
+
 def diagram_header(answers: dict, architecture: DotnetArchitecture) -> str:
     return (f"' Components of {answers['name']}: one per namespace under the root, one arrow per allowed dependency.\n"
             f"' Checked by {architecture.test} (ArchUnitNET) and {ARCHITECTURE_SCRIPT} (every namespace declared).\n"
             f"' Rewrite them from the code: python3 {ARCHITECTURE_SCRIPT} --write (components), then\n"
             "' ARCHITECTURE_DIAGRAM=write dotnet test (arrows), then review.\n"
             "' stack: dotnet\n"
+            f"' Tests: in {architecture.namespace}.<component>; a test uses only the slow dependencies its component "
+            "uses.\n"
+            f"{SLOW_LINE}\n"
             f"' root: {architecture.root}\n"
             f"' exclude: {' '.join(architecture.exclude)}\n")
 
@@ -1001,7 +1014,7 @@ def plan_dotnet(target: Path, answers: dict, architecture: DotnetArchitecture) -
     steps = ([] if architecture.has_package else [f"dotnet add {architecture.project} package {ARCHUNIT_PACKAGE}"]) + [
         f"python3 {ARCHITECTURE_SCRIPT} --write (writes the components of {DIAGRAM} from the namespaces)",
         f"ARCHITECTURE_DIAGRAM=write dotnet test {architecture.project} (writes the arrows from the compiled code)",
-        "dotnet test and the verification must pass; show the diagram to the user"]
+        SLOW_STEP, "dotnet test and the verification must pass; show the diagram to the user"]
     notes.append(after_apply(steps))
     return changes, notes
 
@@ -1012,6 +1025,9 @@ def contracts_header(answers: dict, architecture: PythonArchitecture) -> str:
             "components it may import.\n"
             f"; Checked by {ARCHITECTURE_SCRIPT} (every child declared, then import-linter).\n"
             f"; Rewrite the contracts from the code: {architecture.check} --write, then review.\n"
+            "; Tests: in tests/<child>/ (tests/<root>/ for the root); a test uses only the slow dependencies "
+            "(top-level modules) its component uses.\n"
+            "; slow:\n"
             "[importlinter]\n" + (f"root_package = {architecture.roots[0]}\n" if len(architecture.roots) == 1
                                    else "root_packages =\n" + "".join(f"    {r}\n" for r in architecture.roots)))
 
@@ -1023,7 +1039,7 @@ def plan_python(target: Path, answers: dict, architecture: PythonArchitecture) -
         notes.append(f"architecture: no uv.lock or poetry.lock: add {IMPORTLINTER_PACKAGE} to the project's "
                      "development dependencies")
     steps = ([architecture.install] if architecture.install else []) + [
-        f"{architecture.check} --write (writes the contracts of {IMPORTLINTER})",
+        f"{architecture.check} --write (writes the contracts of {IMPORTLINTER})", SLOW_STEP,
         "the verification must pass; show the contracts to the user"]
     notes.append(after_apply(steps))
     return changes, notes
@@ -1035,6 +1051,8 @@ def rust_diagram_header(answers: dict, architecture: RustArchitecture) -> str:
             "dependency (normal and build, not dev).\n"
             "' A <<restricted>> crate may depend only on the external crates drawn (<<external>>); "
             "the others are free.\n"
+            "' A <<slow>> crate (engine, UI, database, network) may be a dev-dependency only of the crates that use "
+            "it, directly or through their crates.\n"
             f"' Checked by {ARCHITECTURE_SCRIPT}. Rewrite the crates and arrows from the code: {architecture.check} "
             "--write, then review.\n"
             f"' exclude: {' '.join(architecture.exclude)}\n")
@@ -1045,7 +1063,8 @@ def plan_rust(target: Path, answers: dict, architecture: RustArchitecture) -> tu
                                        "crates")
     steps = [f"{architecture.check} --write (writes the crates and arrows of {DIAGRAM})",
              "show the diagram to the user and mark with them the crates that are <<restricted>> (their external "
-             "dependencies are an allowlist)", f"{architecture.check} --write again (draws their external crates)",
+             "dependencies are an allowlist) and declare the slow crates as `[name] <<slow>>`",
+             f"{architecture.check} --write again (draws their external crates)",
              "the verification must pass"]
     return changes, [after_apply(steps)]
 
@@ -1057,6 +1076,8 @@ def kotlin_diagram_header(answers: dict, architecture: KotlinArchitecture) -> st
             f"' Checked by {architecture.test} (ArchUnit) and {ARCHITECTURE_SCRIPT} (every package declared).\n"
             f"' Rewrite them from the code: {architecture.check} --write (components), then\n"
             f"' ARCHITECTURE_DIAGRAM=write {architecture.gradle_test} (arrows), then review.\n"
+            "' Tests: in the package of what they test; a test uses only the slow dependencies its component uses.\n"
+            f"{SLOW_LINE}\n"
             f"' root: {architecture.root}\n"
             f"' sources: {architecture.sources}\n")
 
@@ -1100,7 +1121,7 @@ def plan_kotlin(target: Path, answers: dict, architecture: KotlinArchitecture) -
         changes.append(Change(f"update {architecture.build_file} ({', '.join(added)})", write(build_file, updated)))
     steps = [f"{architecture.check} --write (writes the components of {DIAGRAM} from the packages)",
              f"ARCHITECTURE_DIAGRAM=write {architecture.gradle_test} (writes the arrows from the compiled code)",
-             f"{architecture.gradle_test} and the verification must pass; show the diagram to the user"]
+             SLOW_STEP, f"{architecture.gradle_test} and the verification must pass; show the diagram to the user"]
     notes.append(after_apply(steps))
     return changes, notes
 
@@ -1114,8 +1135,10 @@ def plan_js(target: Path, answers: dict, architecture: JsArchitecture) -> tuple[
     content = {"stack": "js",
                "comment": f"Components of {answers['name']}: each folder right under a root, with the components it "
                           f"may import. Checked by {ARCHITECTURE_SCRIPT} (dependency-cruiser). Rewrite the "
-                          f"components from the code: {architecture.check} --write, then review.",
-               "roots": list(architecture.roots), "exclude": list(architecture.exclude), "components": {}}
+                          f"components from the code: {architecture.check} --write, then review. Tests: in the "
+                          "folder of their component; a test uses only the `slow` packages its component uses.",
+               "roots": list(architecture.roots), "exclude": list(architecture.exclude), "slow": [],
+               "components": {}}
     changes = create_architecture_file(target, ARCHITECTURE_JSON,
                                        json.dumps(content, indent=2, ensure_ascii=False) + "\n")
     notes = []
@@ -1128,7 +1151,7 @@ def plan_js(target: Path, answers: dict, architecture: JsArchitecture) -> tuple[
     if workflow.is_file() and "npm ci" not in workflow.read_text(encoding="utf-8"):
         notes.append("architecture: add `- run: npm ci` before the verification in .github/workflows/verify.yml")
     steps = ([] if architecture.has_package else [f"npm install --save-dev {DEPCRUISE_PACKAGE}"]) + [
-        f"{architecture.check} --write (writes the components of {ARCHITECTURE_JSON})",
+        f"{architecture.check} --write (writes the components of {ARCHITECTURE_JSON})", SLOW_STEP,
         f"the verification must pass; show {ARCHITECTURE_JSON} to the user"]
     notes.append(after_apply(steps))
     return changes, notes

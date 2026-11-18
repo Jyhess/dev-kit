@@ -115,6 +115,38 @@ class KotlinTemplateTest(unittest.TestCase):
         self.assertIn("com.shop.orders.Order", report)
         self.assertIn("com.shop.billing.Invoice", report)
 
+    def test_tests_mirror_the_components_and_use_only_their_slow_dependencies(self):
+        """java.sql stands for a slow dependency: com.shop.db uses it, com.shop.orders does not."""
+        self.write(MAIN + "db/Store.kt", "package com.shop.db\n\nclass Store {\n"
+                                         "    val at = java.sql.Timestamp(0)\n}\n")
+        self.write(TESTS + "db/StoreTest.kt", junit_test("com.shop.db", "StoreTest", "java.sql.Timestamp(0)"))
+        self.write(TESTS + "orders/OrderTest.kt", junit_test("com.shop.orders", "OrderTest", "Order()"))
+        self.write(TESTS + "ShopTest.kt", junit_test("com.shop", "ShopTest", "Shop()"))
+        self.check(sys.executable, str(SCRIPT), "--write", ".")
+        result = self.gradle_test({"ARCHITECTURE_DIAGRAM": "write"})
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        diagram = self.repo / "docs/architecture.puml"
+        self.assertIn("' slow:\n", diagram.read_text(encoding="utf-8"))
+        diagram.write_text(diagram.read_text(encoding="utf-8").replace("' slow:\n", "' slow: java.sql\n"),
+                           encoding="utf-8")
+        result = self.gradle_test()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.write(TESTS + "orders/OrderTest.kt", junit_test("com.shop.orders", "OrderTest", "java.sql.Timestamp(0)"))
+        self.write(TESTS + "stock/StockTest.kt", junit_test("com.shop.stock", "StockTest", "1"))
+        result = self.gradle_test()
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        report = "".join(p.read_text(encoding="utf-8") for p in (self.repo / "app/build/test-results").rglob("*.xml"))
+        self.assertIn("com.shop.orders.OrderTest uses java.sql, a slow dependency com.shop.orders does not use", report)
+        self.assertIn("com.shop.stock.StockTest: its package mirrors no component with code", report)
+
+
+TESTS = "app/src/test/kotlin/com/shop/"
+
+
+def junit_test(package: str, name: str, value: str) -> str:
+    return (f"package {package}\n\nimport org.junit.Assert.assertNotNull\nimport org.junit.Test\n\n"
+            f"class {name} {{\n    @Test\n    fun builds() {{\n        assertNotNull({value})\n    }}\n}}\n")
+
 
 if __name__ == "__main__":
     unittest.main()

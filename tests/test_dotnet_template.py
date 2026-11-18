@@ -101,6 +101,42 @@ class DotnetTemplateTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Acme.Shop.Orders.Order does depend on Acme.Shop.Billing.Invoice", result.stdout)
 
+    def test_tests_mirror_the_components_and_use_only_their_slow_dependencies(self):
+        """System.Net.Http stands for a slow dependency: Acme.Shop.Net uses it, Acme.Shop.Orders does not."""
+        self.write("Shop/Net/Gateway.cs", "namespace Acme.Shop.Net;\n\npublic class Gateway\n{\n"
+                                          "    public System.Net.Http.HttpClient Client { get; } = new();\n}\n")
+        self.write("Shop.Tests/Net/GatewayTest.cs", nunit_test("Shop.Tests.Net", "GatewayTest",
+                                                               "new Acme.Shop.Net.Gateway().Client"))
+        self.write("Shop.Tests/Orders/OrderTest.cs", nunit_test("Shop.Tests.Orders", "OrderTest",
+                                                                "new Acme.Shop.Orders.Order()"))
+        self.write("Shop.Tests/Shop/ShopTest.cs", nunit_test("Shop.Tests.Shop", "ShopTest", "new Acme.Shop.Shop()"))
+        self.check(sys.executable, str(SCRIPT), "--write", ".")
+        self.check("dotnet", "test", "Shop.Tests", env={"ARCHITECTURE_DIAGRAM": "write"})
+        diagram = self.repo / "docs/architecture.puml"
+        self.assertIn("' slow:\n", diagram.read_text(encoding="utf-8"))
+        diagram.write_text(diagram.read_text(encoding="utf-8").replace("' slow:\n", "' slow: System.Net.Http\n"),
+                           encoding="utf-8")
+        self.check("dotnet", "test", "Shop.Tests")
+        self.write("Shop.Tests/Orders/OrderTest.cs", nunit_test("Shop.Tests.Orders", "OrderTest",
+                                                                "new System.Net.Http.HttpClient()"))
+        result = self.run_command("dotnet", "test", "Shop.Tests")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Shop.Tests.Orders.OrderTest uses System.Net.Http, a slow dependency Acme.Shop.Orders does not "
+                      "use", result.stdout)
+        self.write("Shop.Tests/Orders/OrderTest.cs", nunit_test("Shop.Tests.Orders", "OrderTest",
+                                                                "new Acme.Shop.Orders.Order()"))
+        self.write("Shop.Tests/FlatTest.cs", nunit_test("Shop.Tests", "FlatTest", "new Acme.Shop.Orders.Order()"))
+        self.write("Shop.Tests/Stock/StockTest.cs", nunit_test("Shop.Tests.Stock", "StockTest", "1"))
+        result = self.run_command("dotnet", "test", "Shop.Tests")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Shop.Tests.FlatTest: test at the root of Shop.Tests", result.stdout)
+        self.assertIn("Shop.Tests.Stock.StockTest: its namespace mirrors no component", result.stdout)
+
+
+def nunit_test(namespace: str, name: str, value: str) -> str:
+    return (f"namespace {namespace};\n\npublic class {name}\n{{\n    [NUnit.Framework.Test]\n"
+            f"    public void Builds() => NUnit.Framework.Assert.That({value}, NUnit.Framework.Is.Not.Null);\n}}\n")
+
 
 if __name__ == "__main__":
     unittest.main()
