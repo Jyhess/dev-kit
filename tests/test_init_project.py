@@ -419,6 +419,7 @@ class InitProjectTest(unittest.TestCase):
         self.assertIn("[errors.md](errors.md)", self.read("docs/design/principles.md"))
         self.assertEqual(self.read("docs/design/errors.md"), "# Own errors\n")
         self.assertIn("never by a comment", self.read("docs/design/robustness.md"))
+        self.assertIn("holds no business logic", self.read("docs/design/tests.md"))
         self.assertIn("read `docs/design/principles.md`", self.read("AGENTS.md"))
 
     def test_repository_without_code_gets_no_design_section_nor_pages(self):

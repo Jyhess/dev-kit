@@ -32,8 +32,8 @@ Git, pull request, provisional values and known limitations rules: the project's
 
 1. Read the ticket (`get_issue`), its relations and the documentation page of its step. Check the Definition of Ready. If a criterion is ambiguous or contradicts the documentation, ask before coding (the shared `clarify` skill for anything substantial).
 2. Move the ticket to In Progress; its branch takes the name Linear gives (`gitBranchName`).
-3. Develop test-first: each automatable business criterion becomes an end-to-end test written before the code. Respect every technical criterion and the out of scope. An architecture change the ticket does not list as approved stops the work: submit it to the user first. Prove each regression test by seeing it fail with the defect it targets reintroduced.
-4. Rebase, then run the project's verification: every automatable criterion passes.
+3. Develop test-first: each automatable business criterion becomes a test, written first, in the lowest layer that can check it. Respect the technical criteria and the out of scope. An architecture change the ticket does not list as approved stops the work: submit it to the user first.
+4. Review the tests the ticket touches against `docs/design/tests.md`. Rebase, then run the project's verification: every automatable criterion passes.
 5. Open the draft PR. Title: the ticket's title. Description: the repository's PR template (`.github/pull_request_template.md`) filled in, with `Fixes <ID>` and only the optional sections that apply (among them the architecture changes approved in the ticket); the `PR description` check turns red on a missing or empty section: check it first with `python3 .github/scripts/pr_description.py <body file>`.
 6. Ask the user about each provisional value and known limitation, as `AGENTS.md` says; their tickets are Linear tickets.
 7. Comment on the ticket (`save_comment`): the PR link, what the AI found hard, and what was noticed out of scope, with a ticket proposed for it instead of doing it.

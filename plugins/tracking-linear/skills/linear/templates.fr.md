@@ -17,7 +17,7 @@ Ce que l'utilisateur voit ou fait, en quelques lignes.
 
 ## Critères d'acceptance technique
 - Contraintes d'architecture : où placer le code, ce qu'on réutilise, ce qui est interdit.
-- Tests de bout en bout pour chaque critère métier automatisable.
+- Un test pour chaque critère métier automatisable, dans la couche la plus basse qui peut le vérifier (`docs/design/tests.md`).
 - Performance sur la machine de référence, si pertinent.
 - Compilation sans avertissement.
 
@@ -51,7 +51,7 @@ Les tickets d'Implémentation qui la composent.
 ## Comportement attendu
 
 ## Corrigé si
-- Un test de bout en bout reproduit le bug, puis passe après correction.
+- Un test dans la couche la plus basse qui peut reproduire le bug échoue, puis passe après correction.
 ```
 
 ## Amélioration

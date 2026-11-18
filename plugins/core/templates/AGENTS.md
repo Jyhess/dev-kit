@@ -29,7 +29,7 @@ ${commands}
 
 ## Design
 
-- Before designing or changing code, read `${principles}` (errors, robustness by design).
+- Before designing or changing code, read `${principles}` (errors, robustness by design, tests and slow dependencies).
 
 ## Architecture
 

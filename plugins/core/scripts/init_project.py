@@ -173,7 +173,7 @@ READY_LABELS = {"fr": ("Prêt", "Respecte la définition de prêt"), "en": ("rea
 READY_COLOR = "0e8a16"
 # Shared design principles: a page of principles linking to one page per topic, read before designing.
 PRINCIPLES_FOLDER = "docs/design"
-PRINCIPLES_PAGES = ("principles.md", "errors.md", "robustness.md")
+PRINCIPLES_PAGES = ("principles.md", "errors.md", "robustness.md", "tests.md")
 
 
 @dataclass

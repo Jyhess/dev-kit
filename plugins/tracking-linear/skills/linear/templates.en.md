@@ -17,7 +17,7 @@ What the user sees or does, in a few lines.
 
 ## Technical acceptance criteria
 - Architecture constraints: where the code goes, what is reused, what is forbidden.
-- End-to-end tests for each automatable business criterion.
+- A test for each automatable business criterion, in the lowest layer that can check it (`docs/design/tests.md`).
 - Performance on the reference machine, if relevant.
 - Build without warnings.
 
@@ -51,7 +51,7 @@ The Implementation tickets it is made of.
 ## Expected behaviour
 
 ## Fixed when
-- An end-to-end test reproduces the bug, then passes after the fix.
+- A test in the lowest layer that can reproduce the bug fails, then passes after the fix.
 ```
 
 ## Improvement
