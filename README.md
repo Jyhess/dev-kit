@@ -15,7 +15,7 @@ What it does, in short:
 
 | Plugin | Enabled | Contents |
 |---|---|---|
-| `core` | in the user configuration, everywhere | `/core:clarify` (question a subject in rounds, three levels); `/core:project-init` (set up or equip a project: `AGENTS.md`, `CLAUDE.md`, plugins, `.gitattributes`, `.gitignore`, pre-push hook and CI, GitHub repository, work journal); `/core:pilot` (steer a theme, one sub-session per ticket); `/core:ask` (questions with choices in one form); hooks that fast-forward this clone at session start, inject the shared rules and a project's vocabulary rules, and warn when a session's context grows |
+| `core` | in the user configuration, everywhere | `/core:clarify` (question a subject in rounds, three levels); `/core:project-init` (set up or equip a project: `AGENTS.md`, `CLAUDE.md`, plugins, `.gitattributes`, `.gitignore`, pre-push hook and CI, GitHub repository, work journal); `/core:pilot` (steer a theme, one sub-session per ticket); `/core:ask` (questions with choices in one form); `/core:test-audit` (audit a test suite, propose fix tickets); hooks that fast-forward this clone at session start, inject the shared rules and a project's vocabulary rules, and warn when a session's context grows |
 | `dev-journal` | in the user configuration, everywhere | the hourly work journal ([docs/dev-journal.md](docs/dev-journal.md)): a hook that asks about working hours no machine has logged; `/dev-journal:hourly`, run by an hourly scheduled task, writes the entries from local sessions and commits and pushes them to the user's private journal repository |
 | `tracking-linear` | per project (Linear) | `/tracking-linear:linear`: implement a ticket up to the PR, split a step into tickets, reviews and decisions with the points done and the work journal's hours for the period (`scripts/journal_time.py`) |
 | `tracking-github-issues` | per project (GitHub issues) | `/tracking-github-issues:github-issues`: the same flow on GitHub issues, without points or time |
@@ -23,7 +23,7 @@ What it does, in short:
 | `docs-folder` | per project (`docs/`) | `/docs-folder:docs`: pages of `docs/` in English, updated from the project's update table (`docs/update-table.md`) |
 | `writing` | in the user configuration, everywhere | `/writing:com`: professional communications (LinkedIn, announcements, professional mails) drafted in the user's voice from their profile `voice.md` in the private dev-journal clone (layout: `skills/com/voice.example.md`), then refined with Humanizer in Claude Code or a voice pass in Codex; also tells whether a text was reworked by AI |
 
-The `SKILL.md` workflows are also exposed to Codex from the same source. `scripts/install.py` links them into `$CODEX_HOME/skills` (default `~/.codex/skills`) as `dev-kit-<plugin>-<skill>`, and removes its former links that no longer match a skill; on Windows it uses directory junctions when symbolic links are unavailable. Skills reach their scripts from the clone's root, recorded as `root` in `~/.dev-kit/config.json`. It also links `~/.dev-kit/rules` to `plugins/core/rules`, for the shared rules. `AGENTS.md` is the canonical shared instruction file. The root `CLAUDE.md` imports it with `@AGENTS.md`.
+The `SKILL.md` workflows are also exposed to Codex from the same source. `scripts/install.py` links them into `$CODEX_HOME/skills` (default `~/.codex/skills`) as `dev-kit-<plugin>-<skill>`, and removes its stale links; on Windows, directory junctions when symbolic links are missing. Skills reach their scripts from the clone's root, recorded as `root` in `~/.dev-kit/config.json`. It also links `~/.dev-kit/rules` to `plugins/core/rules`, for the shared rules. `AGENTS.md` is the canonical shared instruction file. The root `CLAUDE.md` imports it with `@AGENTS.md`.
 
 ## Install on a machine
 
@@ -37,7 +37,7 @@ cd dev-kit
 python3 scripts/install.py
 ```
 
-The script is idempotent. It registers the clone as the `jyhess` marketplace and installs `core`, `dev-journal` and `writing` in the user configuration, with `humanizer` from the blader/humanizer marketplace, then points the clone's Git hooks at `.githooks`. It also links shared skills into Codex's user skill directory, clones the journal repository given by `--journal-url` next to dev-kit and writes `~/.dev-journal/config.json`; the hourly scheduled task is created by hand in the desktop app (see [docs/dev-journal.md](docs/dev-journal.md)). If the Claude CLI is neither on `PATH` nor in the desktop app's folder, set `CLAUDE_CLI` to its path.
+It is idempotent, registers the clone as the `jyhess` marketplace and installs `core`, `dev-journal` and `writing` in the user configuration, with `humanizer` from the blader/humanizer marketplace, then points the clone's Git hooks at `.githooks`. It also links shared skills into Codex's user skill directory, clones the journal repository given by `--journal-url` next to dev-kit and writes `~/.dev-journal/config.json`; the hourly scheduled task is created by hand in the desktop app (see [docs/dev-journal.md](docs/dev-journal.md)). If the Claude CLI is neither on `PATH` nor in the desktop app's folder, set `CLAUDE_CLI` to its path.
 
 To set up the Codex links without installing Claude Code plugins, run:
 
